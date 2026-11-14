@@ -1,0 +1,16 @@
+{
+  "name": "detectives-de-la-tierra",
+  "version": "1.0.0",
+  "description": "App y API de temperatura en tiempo real (Google Weather API) para Detectives de la Tierra",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
