@@ -80,10 +80,5 @@ Para no dejar la llave a la vista, puedes guardarla en Secret Manager y usar `--
 | `CORS_ORIGIN` | `*` | Dominio que puede llamar la API desde otro sitio |
 | `PORT` | `8080` | Puerto (Cloud Run lo asigna solo) |
 
-## Cuidar la cuota gratuita
 
-La caché de 30 minutos hace que `/api/zonas` gaste como máximo 7 llamadas de cada API cada media hora, y solo cuando alguien tiene la app abierta. Con la app abierta todo el mes serían unas 10.000 llamadas. Si la van a dejar encendida en una pantalla, suban `CACHE_MINUTES` a 60.
 
-## ¿Por qué no funciona dentro de claude.ai?
-
-La vista previa de la app en claude.ai bloquea las conexiones a servidores externos. Allí el panel «Tiempo real» lo indica, y todo lo demás funciona igual. Al publicarla en Cloud Run, la app y la API quedan en el mismo dominio y la temperatura en vivo aparece sola.
