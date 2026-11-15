@@ -836,7 +836,11 @@ function pinchInfo() {
 var IOS_GESTURE = 'ongesturestart' in window;
 function pinchStart(mid) { syncProj(); return { k0: zoomK, g: geoAt(mid) }; }
 function pinchTo(P, z, mid) {
-  if (z >= FLAT_K) { setZoom(z); return false; }   // pasa al mapa con calles
+  if (z >= FLAT_K) {   // pasa al mapa con calles, centrado donde están los dedos
+    syncProj(); var gm = geoAt(mid) || P.g;
+    zoomK = FLAT_K; enterFlat(null, gm ? [gm[1], gm[0]] : [-rot[1], -rot[0]], kToZ(Math.min(z, 14)), mid);
+    return false;
+  }
   zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK;
   if (P.g) {   // mantiene bajo los dedos el mismo lugar del mapa
     syncProj();
@@ -847,18 +851,22 @@ function pinchTo(P, z, mid) {
   return true;
 }
 var gest = null;
+// punto entre los dedos: Safari no siempre da clientX en el gesto, así que se usa la posición de los dedos
+function gestMid(e) {
+  if (nTouches() >= 2) return pinchInfo().mid;
+  var r = canvas.getBoundingClientRect();
+  return isFinite(e.clientX) ? [e.clientX - r.left, e.clientY - r.top] : [W / 2, H / 2 + 8];
+}
 document.addEventListener('gesturestart', function (e) {
   e.preventDefault();
   if (e.target !== canvas || S.flat) return;
   cancelFly(); stopAuto(); drag = null;
-  var r = canvas.getBoundingClientRect();
-  gest = pinchStart([e.clientX - r.left, e.clientY - r.top]);
+  gest = pinchStart(gestMid(e));
 }, { passive: false });
 document.addEventListener('gesturechange', function (e) {
   e.preventDefault();
   if (!gest) return;
-  var r = canvas.getBoundingClientRect();
-  if (!pinchTo(gest, gest.k0 * e.scale, [e.clientX - r.left, e.clientY - r.top])) gest = null;
+  if (!pinchTo(gest, gest.k0 * e.scale, gestMid(e))) gest = null;
 }, { passive: false });
 document.addEventListener('gestureend', function (e) { e.preventDefault(); gest = null; }, { passive: false });
 // sobre el mapa, ningún gesto de dos dedos debe mover o agrandar la página
@@ -2071,7 +2079,7 @@ function satZoomed() {
   $('#zoom').value = Math.min(14, k);
 }
 // Pasa del globo al mapa satelital con calles (de una zona, o en el punto `at` = [lat, lon])
-function enterFlat(id, at, zoom) {
+function enterFlat(id, at, zoom, screenPt) {
   if (!window.L && !(window.google && google.maps)) return;
   var z = id ? zoneById(id) : null;
   S.flat = true; stopAuto();
@@ -2094,7 +2102,14 @@ function enterFlat(id, at, zoom) {
       });
     });
     if (z) satDrawZone(z); else if (S.zone) satDrawZone(zoneById(S.zone)); else satClearMarks();
-    if (z && !at) satGo(z, places[0]); else satView(center[0], center[1], zoom);
+    if (z && !at) satGo(z, places[0]); else {
+      if (screenPt && SAT.mode === 'leaflet') {
+        // pellizco: sin animación y con el lugar pellizcado bajo los dedos (no en el centro)
+        SAT.map.invalidateSize(false);
+        var sz = SAT.map.getSize(), pp = SAT.map.project([center[0], center[1]], zoom).add(L.point(sz.x / 2 - screenPt[0], sz.y / 2 - screenPt[1]));
+        SAT.map.setView(SAT.map.unproject(pp, zoom), zoom, { animate: false });
+      } else satView(center[0], center[1], zoom);
+    }
     setTimeout(function () { SAT._busy = false; }, 1600);
   });
 }
@@ -2109,6 +2124,12 @@ function exitFlat(k) {
   zoomK = clamp(k || FLAT_K - 1, 0.8, FLAT_K - 0.5); $('#zoom').value = zoomK; requestDraw();
 }
 function openSat(id) { enterFlat(id); }
+$('#flatOpt').addEventListener('click', function () {
+  var m = $('#flatMore'), open = m.hidden; m.hidden = !open;
+  this.setAttribute('aria-expanded', String(open)); this.querySelector('span').textContent = open ? '▴' : '▾';
+});
+// al elegir una zona, el menú se cierra para dejar ver el mapa
+$('#satPlaces').addEventListener('click', function (e) { if (e.target.closest('[data-sp]')) { $('#flatMore').hidden = true; $('#flatOpt').setAttribute('aria-expanded', 'false'); $('#flatOpt span').textContent = '▾'; } });
 document.querySelectorAll('[data-sl]').forEach(function (b) { b.addEventListener('click', function () { if (SAT.map) satSetBase(b.getAttribute('data-sl')); }); });
 $('#satLabels').addEventListener('click', function () {
   if (!SAT.map) return;
@@ -2131,7 +2152,7 @@ window.DT = {
   refresh: refresh, recolor: recolor, legend: legend, requestDraw: requestDraw, renderAnalysis: renderAnalysis, setLayer: setLayer, setYear: setYear,
   setFocus: setFocus, flyTo: flyTo, setupTimeline: setupTimeline, renderInfo: renderInfo, renderTitles: renderTitles, showHover: showHover, stopAuto: stopAuto,
   project: function (ll) { return proj(ll); }, visible: function (ll) { return d3.geoDistance(ll, [-rot[0], -rot[1]]) < Math.PI / 2 - 0.02; },
-  markerAt: markerAt, colFar: colFar, geoAt: geoAt, landAt: landAt, zoneSeries: zoneSeries, PT_NAME: PT_NAME, SSTZ: SSTZ,
+  SAT: SAT, markerAt: markerAt, colFar: colFar, geoAt: geoAt, landAt: landAt, zoneSeries: zoneSeries, PT_NAME: PT_NAME, SSTZ: SSTZ,
   zoneById: zoneById, ZONES: ZONES, yearTemp: yearTemp, yearAir: yearAir, histPoint: histPoint, warming: warming, selectZone: selectZone,
   apiBase: function () { return API_BASE; }, live: function () { return LIVE; }, fillPeriod: fillPeriod,
   setZoomK: function (z) { setZoom(z); }, cancelFly: cancelFly, closeZone: function () { S.zone = null; renderZoneList(); setupTimeline(); renderAnalysis(); }

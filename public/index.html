@@ -245,7 +245,13 @@ details.more[open]{display:flex;flex-direction:column;gap:6px}
 /* mapa satelital con calles (se abre al acercarse) */
 #flatMap{position:absolute;inset:0;z-index:0;background:#02070d}
 #flatMap[hidden]{display:none}
-#flatBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(760px,calc(100% - 700px));min-width:360px;background:rgba(11,29,44,.92);border:1px solid var(--panel-b);border-radius:8px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#flatBar{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;max-width:min(420px,calc(100% - 90px));background:rgba(11,29,44,.88);border:1px solid var(--panel-b);border-radius:10px;padding:5px;box-shadow:0 6px 20px rgba(0,0,0,.45);z-index:6}
+#flatBar .fb-row{display:flex;gap:5px}
+#flatBar .btn{padding:6px 10px;font-size:13px;min-height:0}
+#flatMore{display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 2px;max-height:55vh;overflow:auto}
+#flatMore[hidden]{display:none}
+#flatMore .seg button{font-size:12px;padding:6px 8px}
+.sat-places{justify-content:flex-start!important}
 #flatBar[hidden]{display:none}
 .sat-places{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:100%}
 .sat-places:empty{display:none}
@@ -341,6 +347,7 @@ table.mini th{color:var(--muted);font-weight:600}
   .stage{flex:none;height:auto;display:flex;flex-direction:column}
   #globe{position:relative;height:62vh;min-height:380px}
   #bg,#gl{height:62vh;min-height:380px;bottom:auto}
+  #flatMap{bottom:auto;height:62vh;min-height:380px}   /* el mapa con calles ocupa lo mismo que el globo */
   .stage-title{width:90%}
   .panel{position:static;width:auto!important;max-height:none!important;margin:8px}
   #info.collapsed .bd{display:flex}
@@ -386,10 +393,16 @@ table.mini th{color:var(--muted);font-weight:600}
   <div id="flatMap" hidden></div>
   <div class="sat-note" id="satNote" hidden></div>
   <div id="flatBar" hidden>
-    <button class="btn" id="satClose">← Volver al globo</button>
-    <div class="seg" role="group" aria-label="Imagen"><button data-sl="esri" aria-pressed="true">Satélite y calles</button><button data-sl="modis" aria-pressed="false">NASA MODIS · año</button></div>
-    <button class="btn" id="satLabels" aria-pressed="true">Nombres y calles</button>
-    <div class="sat-places" id="satPlaces"></div>
+    <div class="fb-row">
+      <button class="btn" id="satClose" title="Volver al globo">← Globo</button>
+      <button class="btn" id="flatOpt" aria-expanded="false" aria-controls="flatMore">⚙ Opciones <span aria-hidden="true">▾</span></button>
+    </div>
+    <div id="flatMore" hidden>
+      <div class="seg" role="group" aria-label="Imagen"><button data-sl="esri" aria-pressed="true">Satélite y calles</button><button data-sl="modis" aria-pressed="false">NASA MODIS · año</button></div>
+      <button class="btn" id="satLabels" aria-pressed="true">Nombres y calles</button>
+      <div class="lbl" style="width:100%;margin:2px 0 0">Ir a una zona</div>
+      <div class="sat-places" id="satPlaces"></div>
+    </div>
   </div>
   <div class="loading" id="loading">Cargando datos…</div>
   <div class="stage-title"><div class="t" id="layerTitle"></div><div class="d" id="layerDate"></div></div>
