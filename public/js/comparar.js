@@ -339,6 +339,15 @@
     DT.renderAnalysis(); DT.legend(); DT.requestDraw();
   };
   M.comparePack = function () { return lastPack; };
+  // colores del cambio por departamento (para el mapa con calles)
+  M.colDiff = function () {
+    if (S.tool !== 'cmp' || S.cmp.tab !== 'tiempo' || S.cmp.scope !== 'colombia' || M.dep.status !== 'ok') return null;
+    var R = analyzeColombia(); if (R.missing) return null;
+    var mx = d3.max(R.regs, function (r) { return Math.abs(r.d); }) || 1, sc = d3.scaleDiverging(function (t) { return d3.interpolateRdBu(1 - t); }).domain([-mx, 0, mx]);
+    var out = { key: R.a + '-' + R.b + '-' + S.cmp.smooth, byId: {} };
+    R.regs.forEach(function (r) { out.byId[r.id] = { d: r.d, col: sc(r.d), a: R.a, b: R.b }; });
+    return out;
+  };
   M.analyzeOceans = function (a, b) { var s = S.cmp.scope, aa = S.cmp.a, bb = S.cmp.b, sm = S.cmp.smooth; S.cmp.a = a; S.cmp.b = b; S.cmp.smooth = false; var R = analyzeOceans(); S.cmp.a = aa; S.cmp.b = bb; S.cmp.smooth = sm; return R; };
   M.findings = findings;
 })();

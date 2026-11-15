@@ -2152,7 +2152,7 @@ window.DT = {
   refresh: refresh, recolor: recolor, legend: legend, requestDraw: requestDraw, renderAnalysis: renderAnalysis, setLayer: setLayer, setYear: setYear,
   setFocus: setFocus, flyTo: flyTo, setupTimeline: setupTimeline, renderInfo: renderInfo, renderTitles: renderTitles, showHover: showHover, stopAuto: stopAuto,
   project: function (ll) { return proj(ll); }, visible: function (ll) { return d3.geoDistance(ll, [-rot[0], -rot[1]]) < Math.PI / 2 - 0.02; },
-  SAT: SAT, markerAt: markerAt, colFar: colFar, geoAt: geoAt, landAt: landAt, zoneSeries: zoneSeries, PT_NAME: PT_NAME, SSTZ: SSTZ,
+  SAT: SAT, kToZ: kToZ, zToK: zToK, FLAT_K: FLAT_K, exitFlat: exitFlat, get colors() { return colors; }, markerAt: markerAt, colFar: colFar, geoAt: geoAt, landAt: landAt, zoneSeries: zoneSeries, PT_NAME: PT_NAME, SSTZ: SSTZ,
   zoneById: zoneById, ZONES: ZONES, yearTemp: yearTemp, yearAir: yearAir, histPoint: histPoint, warming: warming, selectZone: selectZone,
   apiBase: function () { return API_BASE; }, live: function () { return LIVE; }, fillPeriod: fillPeriod,
   setZoomK: function (z) { setZoom(z); }, cancelFly: cancelFly, closeZone: function () { S.zone = null; renderZoneList(); setupTimeline(); renderAnalysis(); }

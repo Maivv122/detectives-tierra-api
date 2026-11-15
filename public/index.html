@@ -257,7 +257,9 @@ details.more[open]{display:flex;flex-direction:column;gap:6px}
 .sat-places:empty{display:none}
 .sat-places button{border:1px solid #2c5f86;background:#12324c;color:#e6eef5;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
 .sat-places button[aria-pressed=true]{background:#fbbf24;color:#1a1300;border-color:#fbbf24;font-weight:700}
-.stage.flat .stage-title,.stage.flat .legend,.stage.flat #eventCard{display:none}
+.stage.flat .stage-title,.stage.flat #eventCard{display:none}
+.stage.flat .legend{z-index:5;background:rgba(5,12,22,.78);border-radius:8px;padding:4px 8px 6px}
+.leaflet-tooltip{font:12.5px/1.35 Inter,system-ui,sans-serif}
 .sat-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:440px;background:rgba(11,29,44,.95);border:1px solid var(--panel-b);border-radius:8px;padding:16px;font-size:14px;line-height:1.45}
 .sat-note[hidden]{display:none}
 .leaflet-container{font-family:Inter,system-ui,sans-serif}
@@ -571,6 +573,7 @@ table.mini th{color:var(--muted);font-weight:600}
 <script src="js/colombia.js"></script>
 <script src="js/global.js"></script>
 <script src="js/buscar.js"></script>
+<script src="js/plano.js"></script>
 <script>
 (function () {
   // panel izquierdo: plegado en el mundo (más mapa, menos texto); abierto en Colombia (ahí están los departamentos)

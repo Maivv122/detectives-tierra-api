@@ -110,7 +110,13 @@
     if (S.tool === 'cmp' && M.closeCompare) M.closeCompare();
     M.collapseYT();
     renderQuick();
-    if (fly !== false) {
+    if (fly !== false && S.flat && DT.SAT.map && DT.SAT.mode === 'leaflet') {
+      // en el mapa con calles: se acerca al departamento sin volver al globo
+      var bb = d3.geoBounds(M.dep.byId[id].f), lb = L.latLngBounds([bb[0][1], bb[0][0]], [bb[1][1], bb[1][0]]);
+      var zz = Math.max(DT.SAT.map.getBoundsZoom(lb, false, L.point(40, 40)), DT.kToZ(DT.FLAT_K) + 0.4);
+      DT.SAT._busy = true; DT.SAT.map.flyTo(lb.getCenter(), zz, { duration: 1.1 });
+      setTimeout(function () { DT.SAT._busy = false; }, 1400);
+    } else if (fly !== false) {
       // zoom para que el departamento ocupe cerca de la mitad de la pantalla (sin pasar al mapa de calles)
       var f = M.dep.byId[id].f, c = d3.geoCentroid(f), b = d3.geoBounds(f), span = Math.max(b[1][0] - b[0][0], (b[1][1] - b[0][1]) * 1.15, 0.4) * Math.PI / 180;
       var zk = clamp(0.5 / (0.41 * span), 4.2, 7.6);
