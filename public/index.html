@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Detectives de la Tierra</title>
+<link rel="stylesheet" href="lib/leaflet.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
 :root{
@@ -114,9 +115,150 @@ select,.chk{background:#0c2236;color:var(--text);border:1px solid var(--panel-b)
 .dots button:hover{transform:scale(1.3)}
 .ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 4px}
 .rt{border:1px solid #2c5f86;background:#173a56;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;min-height:34px}
+/* módulos: comparador, departamentos, IA */
+.tool.mod{background:#21405c;border-color:#3f6f94}
+/* gráficas interactivas */
+.gx{position:relative;margin:6px 0 10px;padding:0}
+.gx .gt{font-weight:700;font-size:14px}
+.gx .gs{font-size:12px;color:#9fc3dc;margin-bottom:4px}
+.gtools{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.gtools button,.gleg button{background:#0f2a40;border:1px solid #24506f;color:#dbe7f1;border-radius:999px;padding:3px 9px;font:inherit;font-size:11.5px;cursor:pointer}
+.gtools button.on{background:#fbbf24;border-color:#fbbf24;color:#1a1300;font-weight:700}
+.gtools .gsep{flex:1}
+.gplot{touch-action:pan-y;user-select:none;cursor:crosshair}
+.gplot svg{display:block;width:100%;height:auto}
+.gtk{font-size:9.5px;fill:#9fb6c8}.gax{font-size:9.5px;fill:#cfe0ec;font-weight:600}
+.gan{font-size:9px;fill:#fff;font-weight:600;paint-order:stroke;stroke:#08131f;stroke-width:3px}
+.gname{font-size:10.5px;fill:#dbe7f1}.gval{font-size:10.5px;fill:#fff;font-weight:700}
+.gleg{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.gleg button i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.gleg button.off{opacity:.45;text-decoration:line-through}
+.gkeys{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.gk{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:11.5px;color:#cfe0ec;background:#0b2135;border-radius:8px;padding:5px 8px}
+.gk>b{width:100%}.gk .gtr{width:100%;color:#fde68a}
+.ghint{font-size:10.5px;color:var(--muted);margin-top:4px}
+.gtip{position:absolute;z-index:5;pointer-events:none;background:rgba(5,12,22,.95);border:1px solid #3b6f95;border-radius:8px;padding:6px 9px;font-size:12px;min-width:120px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.gtip[hidden]{display:none}.gtip i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.gtip .gty{font-weight:700;margin-bottom:2px}.gtip .gtd{border-top:1px solid #24506f;margin-top:3px;padding-top:3px;color:#fde68a}
+/* resumen de comparación */
+.sumbox{background:#0b2135;border:1px solid #24506f;border-radius:10px;padding:9px;margin:8px 0}
+.sbvals{display:flex;gap:6px;flex-wrap:wrap}
+.sbv{flex:1 1 120px;border-left:4px solid;background:#0f2a40;border-radius:6px;padding:5px 8px;display:flex;flex-direction:column}
+.sbv span{font-size:12px;font-weight:700}.sbv b{font-size:19px}.sbv small{font-size:10.5px;color:var(--muted)}
+.sbdiff{margin-top:6px;font-size:13px}
+.sbfind{margin-top:6px;font-size:13px;line-height:1.4;background:rgba(251,191,36,.08);border-radius:6px;padding:6px 8px}
+.sbfind span{display:block;font-size:11px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:.04em}
+/* mis datos */
+.upstatus{margin:8px 0;padding:7px 10px;border-radius:8px;font-size:13px}
+.upstatus.busy{background:#0f2a40;border:1px solid #2c5f86}
+.upstatus.ok{background:#0f2e1d;border:1px solid #22c55e;color:#dcfce7}
+.upstatus.err{background:#3a1212;border:1px solid #ef4444;color:#fee2e2}
+.uperr{background:#1f0f12;border:1px solid #7f1d1d;border-radius:8px;padding:8px 10px;font-size:13px}
+.uperr p{margin:6px 0 0}.uperr ul,.upwarn{margin:6px 0 0;padding-left:18px;font-size:12px;color:#fde68a}
+.upsum{background:#0b2135;border-radius:10px;padding:9px 11px}
+.upsum .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.upgrid{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px;margin-top:6px}
+.upgrid span{color:#9fc3dc}
+/* buscador */
+.search{position:relative;display:flex;align-items:center;gap:6px;background:#0c2236;border:1px solid #2c5f86;border-radius:10px;padding:0 10px;height:42px;width:min(320px,34vw)}
+.search:focus-within{border-color:#fbbf24;box-shadow:0 0 0 2px rgba(251,191,36,.25)}
+.search .ic{width:18px;height:18px;flex:none;fill:none;stroke:#9fc3dc;stroke-width:2}
+.search input{flex:1;min-width:0;background:transparent;border:0;color:var(--text);font:inherit;font-size:14px;outline:none}
+.search input::-webkit-search-cancel-button{display:none}
+.qclear{background:transparent;border:0;color:var(--muted);font-size:14px;cursor:pointer;padding:4px}
+.qlist{position:absolute;top:calc(100% + 6px);left:0;right:0;margin:0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--panel-b);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.55);z-index:30;max-height:340px;overflow:auto}
+.qlist[hidden]{display:none}
+.qlist li{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+.qlist li[aria-selected=true],.qlist li:hover{background:#17405f}
+.qlist li b{color:#fbbf24}
+.qlist .qv{font-size:12.5px;color:#cfe0ec;white-space:nowrap}
+.qlist .qmsg{cursor:default;color:#cfe0ec;font-size:13px;display:block}
+.qlist .qmsg:hover{background:transparent}
+.deptip{position:absolute;z-index:8;pointer-events:none;background:rgba(5,12,22,.92);border:1px solid #fbbf24;border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;gap:1px;font-size:12.5px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.deptip[hidden]{display:none}
+.deptip b{font-size:13.5px}.deptip small{color:var(--muted);font-size:11px}
+/* modo sencillo */
+#spinBtn{display:none}
+.plain{display:flex;gap:10px;align-items:center;background:#0c2236;border:1px solid #234b69;border-radius:10px;padding:10px 12px}
+.plain .pe{font-size:28px;line-height:1}
+.plain b{display:block;font-size:16px}
+.plain span{font-size:12.5px;color:#b9cddc}
+details.tech{margin-top:2px}
+.legend .words{font-size:12px;font-weight:600;color:#e6eef5}
+.moremenu{position:relative;display:flex}
+.moredrop{position:absolute;top:calc(100% + 6px);right:0;background:var(--panel);border:1px solid var(--panel-b);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;z-index:20;box-shadow:0 10px 30px rgba(0,0,0,.5);min-width:250px}
+.moredrop[hidden]{display:none}
+.moredrop .tool{flex-direction:row;justify-content:flex-start;gap:10px;width:100%;height:auto;padding:8px 10px;text-align:left}
+.moredrop .tool span{display:flex;flex-direction:column;font-size:13px;letter-spacing:0;text-transform:none}
+.moredrop .tool small{font-size:11px;color:var(--muted);font-weight:500}
+.coach{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:6;background:rgba(11,29,44,.96);border:1px solid #fbbf24;border-radius:12px;padding:12px 16px;width:min(560px,calc(100% - 40px));box-shadow:0 10px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:8px}
+.coach[hidden]{display:none}
+.coach ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.coach li{display:flex;gap:8px;align-items:flex-start}
+.coach li span{flex:none;width:22px;height:22px;border-radius:99px;background:#fbbf24;color:#1a1300;font-weight:800;display:grid;place-items:center;font-size:12px}
+.coach .btn{align-self:flex-end}
+#eventCard .e p{display:none}
+.tool.mod[aria-pressed=true]{background:#b8860b;border-color:#fbbf24;color:#fff;box-shadow:0 0 0 1px #fbbf24 inset}
+#analysis.wide{width:400px}
+.stage.tooling .ytable{display:none}
+.stage.has-yt #analysis.wide{max-height:calc(100% - 24px)}
+.mcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mcards.c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mcard{background:#0c2236;border:1px solid #234b69;border-radius:8px;padding:7px 9px;min-width:0}
+.mcard .k{font-size:11px;color:var(--muted)}
+.mcard .v{font-family:'Space Grotesk',Inter,sans-serif;font-weight:700;font-size:19px;line-height:1.15}
+.mcard .s{font-size:11px;color:#b9cddc}
+.mcard .cat{font-size:10.5px}
+.sig{font-size:11px;font-weight:700;white-space:nowrap}.sig.ok{color:#4ade80}.sig.ns{color:#94a3b8}
+.cmp-tabs{display:flex}.cmp-tabs button{flex:1}
+.cmp-form{display:flex;flex-direction:column;gap:6px;background:#0a1d2e;border:1px solid #1f4461;border-radius:8px;padding:8px}
+.cmp-form label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted);flex:1}
+.cmp-form select{width:100%}
+.chkl{display:flex!important;flex-direction:row!important;gap:6px;align-items:flex-start;font-size:12px!important;color:#cfe0ec!important}
+.rpick{flex-wrap:nowrap}.rpick select{flex:1;min-width:0}
+.dot{width:10px;height:10px;border-radius:99px;flex:none;background:#334155}
+.leg{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px}
+.finding{background:#0a1d2e;border:1px solid #1f4461;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.finding p{margin:0;font-size:13px;color:#d9e7f1}
+.tag{font-size:10px;font-weight:700;border-radius:99px;padding:2px 8px;white-space:nowrap}
+.fvals{display:flex;flex-wrap:wrap;gap:6px}
+.fvals span{background:#11304a;border-radius:6px;padding:3px 8px;font-size:12.5px;font-weight:700;display:flex;flex-direction:column}
+.fvals small{font-size:10px;color:var(--muted);font-weight:500}
+.rcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.rcard{border:1px solid;border-left-width:4px;border-radius:8px;padding:7px 9px;background:#0a1d2e;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.rcard .r{display:flex;justify-content:space-between;gap:6px}
+.note{background:#2a2410;border:1px solid #8a6d1f;border-radius:8px;padding:9px 10px;font-size:13px;color:#f1e6c4}
+details.more summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary:before{content:'▸ '}details.more[open] summary:before{content:'▾ '}
+details.more[open]{display:flex;flex-direction:column;gap:6px}
+.depbox{display:flex;flex-direction:column;gap:6px}
+.dchips{display:flex;flex-wrap:wrap;gap:4px}
+.dchips button{border:1px solid #2c5f86;background:#12324c;border-radius:99px;padding:3px 9px;font-size:12px}
+.dchips button[aria-pressed=true]{background:#fbbf24;color:#1a1300;border-color:#fbbf24;font-weight:700}
+.scalebox{display:flex;flex-direction:column;gap:6px}
+.nowrow{font-size:12.5px;background:#0c2a1c;border:1px solid #1d6b43;border-radius:6px;padding:5px 8px}
+.btn.gold{background:#b8860b;border-color:#fbbf24;color:#fff}
 /* overlays */
 .overlay{position:fixed;inset:0;background:rgba(0,6,12,.78);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .overlay[hidden]{display:none}
+/* mapa satelital con calles (se abre al acercarse) */
+#flatMap{position:absolute;inset:0;z-index:0;background:#02070d}
+#flatMap[hidden]{display:none}
+#flatBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(760px,calc(100% - 700px));min-width:360px;background:rgba(11,29,44,.92);border:1px solid var(--panel-b);border-radius:8px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#flatBar[hidden]{display:none}
+.sat-places{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:100%}
+.sat-places:empty{display:none}
+.sat-places button{border:1px solid #2c5f86;background:#12324c;color:#e6eef5;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+.sat-places button[aria-pressed=true]{background:#fbbf24;color:#1a1300;border-color:#fbbf24;font-weight:700}
+.stage.flat .stage-title,.stage.flat .legend,.stage.flat #eventCard{display:none}
+.sat-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:440px;background:rgba(11,29,44,.95);border:1px solid var(--panel-b);border-radius:8px;padding:16px;font-size:14px;line-height:1.45}
+.sat-note[hidden]{display:none}
+.leaflet-container{font-family:Inter,system-ui,sans-serif}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0f2638;color:#e6eef5}
+.leaflet-popup-content{margin:10px 12px;font-size:13px;line-height:1.4}
+.sat-pop b{font-size:14px}.sat-pop .r{display:flex;justify-content:space-between;gap:12px}
+.zsat{width:100%;margin-top:4px}
 .sheet{background:#0f2638;border:1px solid var(--panel-b);border-radius:8px;width:min(860px,100%);max-height:100%;overflow:auto}
 .sheet .bd{padding:16px;display:flex;flex-direction:column;gap:14px}
 .sheet h2{margin:0;font-size:18px}
@@ -169,7 +311,7 @@ table.mini th{color:var(--muted);font-weight:600}
 .tb{flex:1;height:10px;background:#24384a;border-radius:99px;overflow:hidden;display:block}
 .tb span{display:block;height:100%;border-radius:99px}
 .trow .tv{width:52px;text-align:right;font-size:12px;font-weight:700}
-.ytable{position:absolute;right:58px;bottom:10px;width:360px;max-width:calc(100% - 80px);background:var(--panel);border:1px solid var(--panel-b);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:46%;z-index:3}
+.ytable{position:absolute;right:58px;bottom:10px;width:360px;max-width:calc(100% - 80px);background:var(--panel);border:1px solid var(--panel-b);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:min(46%,300px);z-index:3}
 .yt-hd{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--panel-b);flex-wrap:wrap}
 #eventCard[hidden]{display:none}
 .yt-hd b{font-family:'Space Grotesk',Inter,sans-serif;font-size:15px;white-space:nowrap}
@@ -186,7 +328,7 @@ table.mini th{color:var(--muted);font-weight:600}
 .cat{display:inline-block;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
 .yt-sub{font-size:11px;font-weight:700;letter-spacing:.08em;color:#fde68a;text-transform:uppercase;padding-top:4px}
 .yt-legend{display:flex;flex-wrap:wrap;gap:4px}
-.stage.has-yt #analysis{max-height:calc(100% - 300px)}
+.stage.has-yt #analysis{max-height:calc(100% - 330px)}
 .evlist{display:flex;flex-direction:column;gap:6px}
 .evlist button{display:flex;gap:10px;text-align:left;background:#0c2236;border:1px solid #234b69;border-radius:6px;padding:8px;min-height:44px}
 .evlist button:hover{border-color:#fbbf24}
@@ -194,6 +336,7 @@ table.mini th{color:var(--muted);font-weight:600}
 .evlist small{display:block;color:#cfe0ec;font-size:12px}
 .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
 @media (max-width:820px){
+  .search{width:100%;flex:1 1 100%;order:5}
   #app{height:auto}
   .stage{flex:none;height:auto;display:flex;flex-direction:column}
   #globe{position:relative;height:62vh;min-height:380px}
@@ -216,13 +359,23 @@ table.mini th{color:var(--muted);font-weight:600}
     <span>DETECTIVES <small>DE LA</small> TIERRA</span>
   </div>
   <nav class="tools" aria-label="Capas de datos">
-    <button class="tool" data-layer="sst" aria-pressed="true" title="Temperatura del mar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg><span>MAR °C</span></button>
-    <button class="tool" data-layer="anom" aria-pressed="false" title="Anomalía de temperatura del mar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><path d="M6 12V7M10 12V4M14 12v5M18 12v7"/></svg><span>ANOMALÍA</span></button>
-    <button class="tool" data-layer="trend" aria-pressed="false" title="Dónde cambia: tendencia por píxel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>TENDENCIA</span></button>
-    <button class="tool" data-layer="global" aria-pressed="false" title="Temperatura global NASA GISTEMP"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9c-3-3-4-6-4-9s1-6 4-9z"/></svg><span>GLOBAL</span></button>
-    <button class="tool" data-layer="upload" aria-pressed="false" title="Analiza tus datos de NASA"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg><span>MIS DATOS</span></button>
+    <button class="tool" data-layer="sst" aria-pressed="true" title="Temperatura del mar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg><span>MAR</span></button>
+    <button class="tool" data-layer="air" aria-pressed="false" title="Temperatura del aire (Colombia por departamento; mundo: ahora)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/></svg><span>AIRE</span></button>
+    <button class="tool mod" data-mod="cmp" aria-pressed="false" title="Comparar años o regiones"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M17 4v16"/><path d="M3 8l4-4 4 4M13 16l4 4 4-4"/></svg><span>COMPARAR</span></button>
+    <div class="moremenu"><button class="tool" id="moreBtn" aria-expanded="false" title="Más herramientas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>MÁS</span></button>
+      <div class="moredrop" id="moreDrop" hidden>
+    <button class="tool" data-layer="anom" aria-pressed="false" title="Anomalía de temperatura del mar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><path d="M6 12V7M10 12V4M14 12v5M18 12v7"/></svg><span>¿Más caliente de lo normal? <small>Anomalía</small></span></button>
+    <button class="tool" data-layer="trend" aria-pressed="false" title="Dónde cambia: tendencia por píxel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>¿Dónde se calienta? <small>Tendencia</small></span></button>
+    <button class="tool" data-layer="upload" aria-pressed="false" title="Analiza tus datos de NASA"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg><span>Analizar mis datos <small>Archivo de NASA</small></span></button>
+      </div></div>
   </nav>
-  <div class="seg" role="group" aria-label="Enfoque del mapa"><button data-focus="world" aria-pressed="true">MUNDO</button><button data-focus="colombia" aria-pressed="false">COLOMBIA</button></div>
+  <div class="search" id="search" role="search">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="q" type="search" placeholder="Busca un departamento…" autocomplete="off" aria-label="Buscar un departamento de Colombia" aria-autocomplete="list" aria-controls="qList" aria-expanded="false" role="combobox">
+    <button class="qclear" id="qClear" aria-label="Limpiar búsqueda" hidden>✕</button>
+    <ul class="qlist" id="qList" role="listbox" hidden></ul>
+  </div>
+  <button class="btn" id="homeBtn" title="Volver a ver toda Colombia">🇨🇴 Toda Colombia</button>
   <button class="topbtn" id="helpBtn">¿Cómo funciona?</button>
 </header>
 
@@ -230,6 +383,14 @@ table.mini th{color:var(--muted);font-weight:600}
   <canvas id="bg" aria-hidden="true"></canvas>
   <canvas id="gl" aria-hidden="true"></canvas>
   <canvas id="globe" tabindex="0" role="img" aria-label="Globo terrestre interactivo"></canvas>
+  <div id="flatMap" hidden></div>
+  <div class="sat-note" id="satNote" hidden></div>
+  <div id="flatBar" hidden>
+    <button class="btn" id="satClose">← Volver al globo</button>
+    <div class="seg" role="group" aria-label="Imagen"><button data-sl="esri" aria-pressed="true">Satélite y calles</button><button data-sl="modis" aria-pressed="false">NASA MODIS · año</button></div>
+    <button class="btn" id="satLabels" aria-pressed="true">Nombres y calles</button>
+    <div class="sat-places" id="satPlaces"></div>
+  </div>
   <div class="loading" id="loading">Cargando datos…</div>
   <div class="stage-title"><div class="t" id="layerTitle"></div><div class="d" id="layerDate"></div></div>
 
@@ -237,16 +398,18 @@ table.mini th{color:var(--muted);font-weight:600}
     <div class="hd"><h2 id="infoTitle">Capa</h2><button class="iconbtn" id="collapse" aria-label="Contraer panel" aria-expanded="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button></div>
     <div class="bd">
       <div id="zoneBox" hidden style="display:flex;flex-direction:column;gap:6px">
-        <div class="lbl">Zonas de Colombia</div>
+        <div id="depBox" class="depbox"></div>
+        <div class="lbl" style="margin-top:6px">Zonas de estudio</div>
         <div class="zlist" id="zlist"></div>
-        <div class="lbl" style="margin-top:6px">Temperatura de cada zona</div>
-        <div id="ztemps" style="display:flex;flex-direction:column;gap:4px"></div>
+        <details class="more"><summary>Temperatura de cada zona y tiempo real</summary>
+        <div id="ztemps" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div>
         <div class="lbl" style="margin-top:6px">Tiempo real · Google Weather</div>
         <div style="display:flex;gap:8px;align-items:center"><span id="liveStatus" class="src" style="flex:1">Toca «Actualizar» para consultar.</span><button class="btn" id="liveBtn">Actualizar</button></div>
+        </details>
       </div>
       <canvas class="thumb" id="thumb" width="264" height="64" aria-hidden="true"></canvas>
       <p class="desc" id="infoDesc"></p>
-      <div class="src" id="infoSrc"></div>
+      <div id="scaleBox" class="scalebox"></div>
       <div id="periodBox" class="row">
         <span class="lbl" style="width:100%">Periodo de análisis</span>
         <select id="pStart" aria-label="Año inicial"></select><span>a</span><select id="pEnd" aria-label="Año final"></select>
@@ -257,9 +420,11 @@ table.mini th{color:var(--muted);font-weight:600}
         <div class="stack" aria-hidden="true"><div id="sUp" style="background:#d6604d"></div><div id="sNs" style="background:#5b6b7a"></div><div id="sDn" style="background:#4393c3"></div></div>
         <div class="stackleg"><span style="color:#f4a582" id="tUp"></span><span style="color:#9fb6c8" id="tNs"></span><span style="color:#92c5de" id="tDn"></span></div>
       </div>
-      <div class="lbl">Paso a paso</div>
+      <details class="more"><summary>Fuente, paso a paso y enlaces</summary>
+      <div class="src" id="infoSrc" style="margin:6px 0"></div>
       <ol class="steps" id="steps"></ol>
-      <div class="links" id="infoLinks"></div>
+      <div class="links" id="infoLinks" style="margin-top:6px"></div>
+      </details>
     </div>
   </aside>
 
@@ -268,11 +433,18 @@ table.mini th{color:var(--muted);font-weight:600}
     <div class="bd" id="aBody"></div>
   </aside>
 
+  <div class="coach" id="coach" hidden>
+    <b>👋 Así se usa</b>
+    <ol><li><span>1</span><b>Busca</b> un departamento arriba o <b>tócalo</b> en el mapa.</li><li><span>2</span>Mueve el <b>año</b> abajo y mira cómo cambian los colores.</li><li><span>3</span>Usa <b>Comparar</b> para ver dos departamentos o dos años lado a lado.</li></ol>
+    <button class="btn gold" id="coachOk">Entendido</button>
+  </div>
+
   <div class="zoom"><button id="zIn" aria-label="Acercar">+</button><input type="range" id="zoom" min="0.8" max="14" step="0.05" value="1" aria-label="Zoom"><button id="zOut" aria-label="Alejar">−</button>
     <div class="vt">
       <button class="vbtn" id="spinBtn" aria-pressed="true" title="Girar el globo"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg><span>Girar</span></button>
       <button class="vbtn" id="cloudBtn" aria-pressed="true" title="Mostrar nubes"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4.5 4.5 0 0 0 7 18z"/></svg><span>Nubes</span></button>
       <button class="vbtn" id="dataBtn" aria-pressed="true" title="Mostrar datos sobre el mar"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/></svg><span>Datos</span></button>
+      <button class="vbtn" id="reliefBtn" aria-pressed="false" title="Ver montañas, cordilleras y llanuras"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l6-11 4 7 3-4 5 8z"/></svg><span>Relieve</span></button>
     </div></div>
 
   <div class="legend" aria-live="polite">
@@ -280,6 +452,7 @@ table.mini th{color:var(--muted);font-weight:600}
     <div class="un" id="legUnit"></div>
     <div class="barwrap"><canvas id="legBar" width="240" height="10" aria-hidden="true"></canvas><div class="mk" id="legMk"></div></div>
     <div class="tk" id="legTicks"></div>
+    <div class="tk words" id="legWords"></div>
   </div>
 
   <div id="eventCard" hidden aria-live="polite"></div>
@@ -287,7 +460,7 @@ table.mini th{color:var(--muted);font-weight:600}
   <section class="ytable" id="ytable" aria-label="Tabla por año">
     <div class="yt-hd">
       <b>Año <span id="ytYear">—</span></b>
-      <div class="seg yt-seg" role="group" aria-label="Qué mostrar en la tabla"><button data-ym="aire" aria-pressed="true">Aire</button><button data-ym="temp" aria-pressed="false">Temperatura</button></div>
+      <div class="seg yt-seg" role="group" aria-label="Qué mostrar en la tabla"><button data-ym="temp" aria-pressed="true">Temperatura</button><button data-ym="aire" aria-pressed="false">Calidad del aire</button><button data-ym="cambio" aria-pressed="false">Cambio</button></div>
       <button class="iconbtn" id="ytToggle" aria-label="Contraer tabla" aria-expanded="true"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     </div>
     <div class="yt-bd" id="ytBody"></div>
@@ -339,12 +512,15 @@ table.mini th{color:var(--muted);font-weight:600}
             <input type="file" id="file" accept=".csv,.txt,text/csv" class="sr">
           </label>
           <label class="row" id="deseaRow" style="display:none;font-size:13px"><input type="checkbox" id="desea" checked> Quitar ciclo estacional (restar el promedio de cada mes)</label>
+          <div id="upStatus" class="upstatus" role="status" aria-live="polite" hidden></div>
           <div id="upOut"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+
 
 <div class="overlay" id="helpView" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
   <div class="sheet" style="width:min(640px,100%)">
@@ -353,10 +529,11 @@ table.mini th{color:var(--muted);font-weight:600}
     </div>
     <div class="bd">
       <ol class="howto">
-        <li><b>Elige una capa</b> en la barra de arriba: temperatura del mar, anomalía, tendencia, temperatura global o tus propios datos.</li>
-        <li><b>Gira el globo</b> arrastrando y <b>toca un punto</b> para analizarlo.</li>
+        <li><b>Busca un departamento</b> arriba o tócalo en el mapa: el mapa se acerca y aparece su información.</li>
+        <li><b>Elige qué ver</b>: <b>Mar</b> (temperatura del agua alrededor de Colombia) o <b>Aire</b> (temperatura de cada departamento). En <b>Más</b> están la anomalía, la tendencia y el análisis de tus propios archivos.</li>
+        <li><b>Arrastra</b> para moverte y usa <b>+ / −</b> para acercarte. Con mucho zoom aparece el mapa satelital con calles.</li>
         <li><b>Mueve la línea de tiempo</b> o pulsa ▶. Los puntos amarillos marcan años con eventos.</li>
-        <li><b>Lee el veredicto</b>: cuánto cambia por década y si el cambio es significativo.</li>
+        <li><b>Compara</b> dos departamentos o dos años con el botón <b>Comparar</b>.</li>
       </ol>
       <div class="lbl">Glosario</div>
       <div class="vars">
@@ -372,7 +549,31 @@ table.mini th{color:var(--muted);font-weight:600}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="lib/leaflet.js"></script>
 <script src="zones.js"></script>
+<script src="js/graficas.js"></script>
 <script src="app.js"></script>
+<script src="js/datos.js"></script>
+<script src="js/comparar.js"></script>
+<script src="js/colombia.js"></script>
+<script src="js/global.js"></script>
+<script src="js/buscar.js"></script>
+<script>
+(function () {
+  // panel izquierdo: plegado en el mundo (más mapa, menos texto); abierto en Colombia (ahí están los departamentos)
+  var info = document.querySelector('#info'), col = document.querySelector('#collapse');
+  function setInfo(open) { if (info.classList.contains('collapsed') === open) col.click(); }
+  if (window.innerWidth > 700) setInfo(false);
+  var yt = document.querySelector('#ytable'); if (yt && !yt.classList.contains('collapsed')) document.querySelector('#ytToggle').click();
+  var mb = document.querySelector('#moreBtn'), md = document.querySelector('#moreDrop');
+  mb.addEventListener('click', function (e) { e.stopPropagation(); md.hidden = !md.hidden; mb.setAttribute('aria-expanded', String(!md.hidden)); });
+  md.addEventListener('click', function () { md.hidden = true; mb.setAttribute('aria-expanded', 'false'); });
+  document.addEventListener('click', function () { md.hidden = true; mb.setAttribute('aria-expanded', 'false'); });
+  var seen = false; try { seen = localStorage.getItem('dt-guia') === '1'; } catch (e) {}
+  var c = document.querySelector('#coach'); if (!seen) c.hidden = false;
+  document.querySelector('#coachOk').addEventListener('click', function () { c.hidden = true; try { localStorage.setItem('dt-guia', '1'); } catch (e) {} });
+})();
+</script>
+<script>document.querySelectorAll('[data-mod]').forEach(function (b) { b.addEventListener('click', function () { var m = b.getAttribute('data-mod'); if (m === 'cmp') { if (DT.S.tool === 'cmp') DT.M.closeCompare(); else DT.M.openCompare(); } }); });</script>
 </body>
 </html>

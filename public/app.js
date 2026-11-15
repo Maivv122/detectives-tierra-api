@@ -91,11 +91,13 @@ function analyze(xs, ys) {
 
 /* ---------- capas y eventos ---------- */
 var SEA = ['sst', 'anom', 'trend'];
+/* Ganchos para los módulos (js/*.js): comparador, explorador de Colombia, exploración global e IA */
+var HOOKS = { analysis: [], pick: [], hover: [], draw: [], refresh: [], focus: [], close: [], cell: {}, legend: {} };
 var LAYERS = {
-  sst: { name: 'Temperatura del mar', title: 'Temperatura superficial del mar · promedio anual', desc: 'Qué tan caliente está la superficie del océano. Los tonos amarillos y rojos son aguas cálidas; los azules y morados, aguas frías. La tierra firme se ve con la imagen satelital Blue Marble de NASA.', unit: '°C', src: 'NOAA ERSSTv5: mediciones de barcos, boyas y flotadores Argo, en celdas de 4°. Es la misma base oceánica que usa NASA GISTEMP.', range: [1970, 2021] },
-  anom: { name: 'Anomalía del mar', title: 'Anomalía de la temperatura del mar', desc: 'Cuánto más caliente (rojo) o más frío (azul) estuvo el mar ese año, comparado con el promedio de 1971 a 2000. Así se ven fenómenos como El Niño.', unit: '°C frente a 1971–2000', src: 'NOAA ERSSTv5, promedio anual en celdas de 4°.', range: [1970, 2021] },
-  trend: { name: 'Tendencia', title: '¿Dónde cambia? Tendencia de la temperatura del mar', desc: 'Cada celda muestra cuánto cambió la temperatura del mar por década en el periodo elegido. Rojo: se calienta; azul: se enfría. El gris indica que el cambio no es significativo (Mann-Kendall, p ≥ 0,05).', unit: '°C por década', src: 'Calculado en tu navegador a partir de NOAA ERSSTv5: regresión lineal y prueba de Mann-Kendall en cada celda.', range: [1970, 2021] },
-  global: { name: 'Temperatura global', title: 'Temperatura global del planeta · NASA GISTEMP v4', desc: 'Promedio de tierra y océano de todo el planeta, comparado con 1951–1980. El panel de la derecha analiza la serie global; el globo muestra la anomalía del mar de cada año.', unit: '°C frente a 1951–1980', src: 'NASA Goddard Institute for Space Studies (GISTEMP v4), promedio anual global hasta 2025.', range: [1880, 2026] }
+  sst: { q: '¿Qué tan caliente está el mar?', hint: ['🔵 agua fría', '🔴 agua caliente'], name: 'Temperatura del mar', title: 'Temperatura superficial del mar · promedio anual', desc: 'Qué tan caliente está la superficie del océano. Los tonos amarillos y rojos son aguas cálidas; los azules y morados, aguas frías. La tierra firme se ve con la imagen satelital Blue Marble de NASA.', unit: '°C', src: 'NOAA ERSSTv5: mediciones de barcos, boyas y flotadores Argo, en celdas de 4°. Es la misma base oceánica que usa NASA GISTEMP.', range: [1970, 2021] },
+  anom: { q: '¿El mar está más caliente de lo normal?', hint: ['🔵 más frío de lo normal', '🔴 más caliente de lo normal'], name: 'Anomalía del mar', title: 'Anomalía de la temperatura del mar', desc: 'Cuánto más caliente (rojo) o más frío (azul) estuvo el mar ese año, comparado con el promedio de 1971 a 2000. Así se ven fenómenos como El Niño.', unit: '°C frente a 1971–2000', src: 'NOAA ERSSTv5, promedio anual en celdas de 4°.', range: [1970, 2021] },
+  trend: { q: '¿Dónde se está calentando el mar?', hint: ['🔵 se enfría', '🔴 se calienta'], name: 'Tendencia', title: '¿Dónde cambia? Tendencia de la temperatura del mar', desc: 'Cada celda muestra cuánto cambió la temperatura del mar por década en el periodo elegido. Rojo: se calienta; azul: se enfría. El gris indica que el cambio no es significativo (Mann-Kendall, p ≥ 0,05).', unit: '°C por década', src: 'Calculado en tu navegador a partir de NOAA ERSSTv5: regresión lineal y prueba de Mann-Kendall en cada celda.', range: [1970, 2021] },
+  global: { q: '¿Cuánto se ha calentado el planeta?', hint: ['🔵 más frío que antes', '🔴 más caliente que antes'], name: 'Temperatura global', title: 'Temperatura global del planeta · NASA GISTEMP v4', desc: 'Promedio de tierra y océano de todo el planeta, comparado con 1951–1980. El panel de la derecha analiza la serie global; el globo muestra la anomalía del mar de cada año.', unit: '°C frente a 1951–1980', src: 'NASA Goddard Institute for Space Studies (GISTEMP v4), promedio anual global hasta 2025.', range: [1880, 2026] }
 };
 var LINKS = {
   sst: [['Fuente: NOAA ERSSTv5', 'https://www.ncei.noaa.gov/products/extended-reconstructed-sst'], ['Más datos: NASA Giovanni', 'https://giovanni.gsfc.nasa.gov/giovanni/']],
@@ -127,8 +129,8 @@ var EVENTS = [
 /* ---------- estado ---------- */
 var S = {
   layer: 'sst', year: 2026, period: [1970, 2021], sel: null, onlySig: false,
-  done: [false, false, false], auto: true, playing: false,
-  focus: 'world', zone: null, zoneTab: 'resumen', upZone: '',
+  done: [false, false, false], auto: false, playing: false,
+  focus: 'world', zone: null, zoneTab: 'resumen', relief: false, upZone: '',
   clouds: true, showData: true,
   reduceMotion: !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 };
@@ -162,7 +164,17 @@ var VS = '#version 300 es\nin vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.
 var FS = [
   '#version 300 es',
   'precision highp float;',
-  'uniform sampler2D uEarth, uWater, uClouds, uData, uLand;',
+  'uniform sampler2D uEarth, uWater, uClouds, uData, uLand, uTopo;',
+  'uniform float uRelief, uHypso;',
+  'vec3 hyp(float t){',
+  '  t = clamp(t * 1.5, 0.0, 1.0);',
+  '  vec3 c = mix(vec3(0.18,0.42,0.23), vec3(0.44,0.60,0.27), smoothstep(0.0, 0.05, t));',
+  '  c = mix(c, vec3(0.79,0.71,0.42), smoothstep(0.05, 0.16, t));',
+  '  c = mix(c, vec3(0.64,0.45,0.24), smoothstep(0.16, 0.36, t));',
+  '  c = mix(c, vec3(0.48,0.31,0.18), smoothstep(0.36, 0.60, t));',
+  '  c = mix(c, vec3(0.86,0.83,0.78), smoothstep(0.60, 0.82, t));',
+  '  return mix(c, vec3(1.0), smoothstep(0.82, 1.0, t));',
+  '}',
   'uniform vec4 uLandBox; uniform float uLandAlpha;',
   'uniform vec2 uCenter; uniform float uR; uniform vec2 uRot;',
   'uniform float uCloudShift, uCloudAlpha, uDataAlpha, uHasData;',
@@ -176,7 +188,11 @@ var FS = [
   'void main(){',
   '  vec2 q = (gl_FragCoord.xy - uCenter) / uR;',
   '  float d2 = dot(q, q);',
-  '  if (d2 > 1.0) { outColor = vec4(0.0); return; }',
+  '  if (d2 > 1.0) {',
+  '    float rr = sqrt(d2);',
+  '    float g = 1.0 - smoothstep(1.0, 1.07, rr);',   // halo de atmósfera alrededor del planeta
+  '    outColor = vec4(0.38, 0.66, 1.0, g * g * 0.55); return;',
+  '  }',
   '  float z = sqrt(1.0 - d2);',
   '  float cp = cos(uRot.y), sp = sin(uRot.y);',
   '  float x = z * cp + q.y * sp;',
@@ -206,12 +222,37 @@ var FS = [
   '      }',
   '    }',
   '  }',
+  '  if (uHypso > 0.0) {',
+  '    float hh = sampleSeam(uTopo, u, v).r;',
+  '    float lum0 = dot(col, vec3(0.299, 0.587, 0.114));',
+  '    vec3 hc = hyp(hh) * (0.62 + 0.9 * lum0);',
+  '    col = mix(col, hc, uHypso * 0.85 * (1.0 - smoothstep(0.3, 0.7, water)));',
+  '  }',
   '  float cl = sampleSeam(uClouds, u + uCloudShift, v).r;',
   '  col = mix(col, vec3(0.97), cl * uCloudAlpha);',
   '  vec3 n = vec3(q, z);',
+  '  vec3 nb = n;',
+  '  if (uRelief > 0.0) {',
+  // relieve: normal perturbada con el gradiente de la altura en pantalla (bump mapping)
+  '    float du = 1.5 / 2048.0, dv = 1.5 / 1024.0;',
+  '    float hE = sampleSeam(uTopo, u + du, v).r, hW = sampleSeam(uTopo, u - du, v).r;',
+  '    float hN = sampleSeam(uTopo, u, v - dv).r, hS = sampleSeam(uTopo, u, v + dv).r;',
+  '    float cl = max(cos(lat), 0.05);',
+  '    float sE = (hE - hW) / (2.0 * du * 2.0 * PI * cl), sN = (hN - hS) / (2.0 * dv * PI);',
+  '    float Lw = lon + uRot.x, sl = sin(lat);',
+  '    float dxE = -sin(Lw);',
+  '    vec3 east = normalize(vec3(cos(Lw), dxE * sp, dxE * cp));',
+  '    float dxN = -sl * cos(Lw);',
+  '    vec3 north = normalize(vec3(-sl * sin(Lw), dxN * sp + cos(lat) * cp, dxN * cp - cos(lat) * sp));',
+  '    float landK = 1.0 - smoothstep(0.3, 0.7, water);',
+  '    nb = normalize(n - uRelief * landK * (sE * east + sN * north));',
+  '    if (dot(nb, nb) < 0.5) nb = n;',
+  '  }',
   '  vec3 L = normalize(vec3(-0.45, 0.5, 0.75));',
-  '  float diff = max(dot(n, L), 0.0);',
-  '  col *= 0.42 + 0.7 * diff;',
+  '  float diff = max(dot(nb, L), 0.0);',
+  '  float diff0 = max(dot(n, L), 0.0);',
+  '  col *= 0.30 + 0.85 * diff;',
+  '  col *= 0.85 + 0.15 * smoothstep(0.0, 0.25, diff0);',
   '  vec3 Hh = normalize(L + vec3(0.0, 0.0, 1.0));',
   '  col += pow(max(dot(n, Hh), 0.0), 60.0) * water * 0.22;',
   '  col = mix(col, vec3(0.45, 0.72, 1.0), pow(1.0 - z, 3.0) * 0.55);',
@@ -235,7 +276,7 @@ function initGL() {
     var buf = GL.createBuffer(); GL.bindBuffer(GL.ARRAY_BUFFER, buf);
     GL.bufferData(GL.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), GL.STATIC_DRAW);
     var loc = GL.getAttribLocation(glProg, 'p'); GL.enableVertexAttribArray(loc); GL.vertexAttribPointer(loc, 2, GL.FLOAT, false, 0, 0);
-    ['uEarth', 'uWater', 'uClouds', 'uData', 'uLand', 'uLandBox', 'uLandAlpha', 'uCenter', 'uR', 'uRot', 'uCloudShift', 'uCloudAlpha', 'uDataAlpha', 'uHasData'].forEach(function (n) { glU[n] = GL.getUniformLocation(glProg, n); });
+    ['uEarth', 'uWater', 'uClouds', 'uData', 'uLand', 'uTopo', 'uRelief', 'uHypso', 'uLandBox', 'uLandAlpha', 'uCenter', 'uR', 'uRot', 'uCloudShift', 'uCloudAlpha', 'uDataAlpha', 'uHasData'].forEach(function (n) { glU[n] = GL.getUniformLocation(glProg, n); });
     glTex.data = GL.createTexture();
     GL.bindTexture(GL.TEXTURE_2D, glTex.data);
     GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR); GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
@@ -298,17 +339,21 @@ function drawGL(R, cx, cy) {
   GL.uniform1f(glU.uR, R * dpr);
   GL.uniform2f(glU.uRot, rot[0] * Math.PI / 180, rot[1] * Math.PI / 180);
   GL.uniform1f(glU.uCloudShift, cloudShift);
-  GL.uniform1f(glU.uCloudAlpha, S.clouds ? (S.focus === 'colombia' ? 0.22 : 0.38) : 0);
-  GL.uniform1f(glU.uDataAlpha, S.showData ? 0.9 : 0);
+  GL.uniform1f(glU.uCloudAlpha, S.clouds && !S.relief ? (S.focus === 'colombia' ? 0.22 : 0.38) : 0);
+  GL.uniform1f(glU.uDataAlpha, S.showData && !S.relief ? 0.9 : 0);
   GL.uniform1f(glU.uHasData, D ? 1 : 0);
   GL.uniform1i(glU.uLand, 4);
   if (CLIMA) GL.uniform4f(glU.uLandBox, CLIMA.lon0, CLIMA.lat1, CLIMA.nx * CLIMA.res, CLIMA.ny * CLIMA.res);
-  GL.uniform1f(glU.uLandAlpha, CLIMA && S.showData && S.layer === 'sst' ? 0.85 : 0);
+  GL.uniform1f(glU.uLandAlpha, CLIMA && S.showData && !S.relief && S.layer === 'sst' && S.focus === 'colombia' ? 0.85 : 0);   // en Mundo, Colombia se ve igual que los demás países
   GL.activeTexture(GL.TEXTURE0); GL.bindTexture(GL.TEXTURE_2D, glTex.earth);
   GL.activeTexture(GL.TEXTURE1); GL.bindTexture(GL.TEXTURE_2D, glTex.water);
   GL.activeTexture(GL.TEXTURE2); GL.bindTexture(GL.TEXTURE_2D, glTex.clouds);
   GL.activeTexture(GL.TEXTURE3); GL.bindTexture(GL.TEXTURE_2D, glTex.data);
   GL.activeTexture(GL.TEXTURE4); GL.bindTexture(GL.TEXTURE_2D, glTex.land);
+  GL.uniform1i(glU.uTopo, 5);
+  GL.uniform1f(glU.uRelief, glTex.topo ? (S.relief ? (zoomK > 3 ? 0.26 : 0.14) : S.focus === 'colombia' ? 0.14 : 0.07) : 0);
+  GL.uniform1f(glU.uHypso, glTex.topo && S.relief ? 1 : 0);   // relieve exagerado ~20–30 veces para que se note
+  if (glTex.topo) { GL.activeTexture(GL.TEXTURE5); GL.bindTexture(GL.TEXTURE_2D, glTex.topo); }
   GL.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
 }
 
@@ -364,7 +409,9 @@ function draw() {
     if (!sat) { ctx.beginPath(); path(land); ctx.strokeStyle = 'rgba(170,200,230,0.6)'; ctx.lineWidth = 0.7; ctx.stroke(); }
   }
   ctx.beginPath(); path(graticule); ctx.strokeStyle = sat ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.06)'; ctx.lineWidth = 0.5; ctx.stroke();
+  if (S.relief) drawLandforms();
   if (D && colombia && S.focus === 'colombia') drawColombia();
+  for (var hk = 0; hk < HOOKS.draw.length; hk++) HOOKS.draw[hk](ctx, path, proj, R);
   if (S.sel !== null && S.layer !== 'global') {
     var c = centers[S.sel];
     if (d3.geoDistance(c, [-rot[0], -rot[1]]) < Math.PI / 2) {
@@ -397,6 +444,7 @@ function cellAt(lon, lat) {
 function mapYear() { return clamp(S.year, Y0, Y0 + NY - 1); }
 function cellValue(i, layer) {
   var k = cells[i], y = S.year;
+  if (HOOKS.cell[layer]) return HOOKS.cell[layer](i, k);
   if (layer === 'trend') return trendB ? trendB[i] : NaN;
   y = mapYear();
   if (!hasYear(y)) return NaN;
@@ -439,7 +487,18 @@ function recolor() {
 }
 
 /* ---------- leyenda ---------- */
+function legendRelief() {
+  var cv = $('#legBar'), c2 = cv.getContext('2d');
+  var stops = [[0, '#2e6b3a'], [0.05, '#709945'], [0.16, '#c9b56b'], [0.36, '#a3733d'], [0.6, '#7a4f2e'], [0.82, '#dbd4c7'], [1, '#ffffff']];
+  var gr = c2.createLinearGradient(0, 0, cv.width, 0); stops.forEach(function (s2) { gr.addColorStop(s2[0], s2[1]); });
+  c2.fillStyle = gr; c2.fillRect(0, 0, cv.width, cv.height);
+  $('#legUnit').textContent = 'Relieve · altura del terreno (NASA), exagerada para que se note';
+  $('#legTicks').innerHTML = '<span>Llanura</span><span>Montaña</span><span>Cumbres</span>';
+}
 function legend() {
+  if (S.relief) return legendRelief();
+  if (HOOKS.legend.override) { var ow = HOOKS.legend.override(); if (ow) { $('#legWords').innerHTML = '<span>' + ow[0] + '</span><span>' + ow[1] + '</span>'; return; } }
+  if (HOOKS.legend[S.layer]) { var r = HOOKS.legend[S.layer](); legWords(); return r; }
   var layer = S.layer, sc = scales[layer], dom = sc.domain(), lo = dom[0], hi = dom[dom.length - 1];
   var cv = $('#legBar'), c2 = cv.getContext('2d');
   for (var x = 0; x < cv.width; x++) { c2.fillStyle = sc(lo + (hi - lo) * x / (cv.width - 1)); c2.fillRect(x, 0, 1, cv.height); }
@@ -447,7 +506,14 @@ function legend() {
   for (x = 0; x < th.width; x++) { c3.fillStyle = sc(lo + (hi - lo) * x / (th.width - 1)); c3.fillRect(x, 0, 1, th.height); }
   var d = layer === 'sst' ? 0 : 1;
   $('#legTicks').innerHTML = [lo, (lo + hi) / 2, hi].map(function (v) { return '<span>' + (layer === 'sst' ? fmt(v, 0) : sfmt(v, d)) + '</span>'; }).join('');
-  $('#legUnit').textContent = layer === 'global' ? '°C frente a 1971–2000 (mar)' : layer === 'sst' ? '°C · mar: ERSSTv5 · tierra de Colombia: WorldClim' : LAYERS[layer].unit;
+  legWords();
+  $('#legUnit').textContent = layer === 'global' ? 'Mar: diferencia con lo normal (°C)' : layer === 'sst' ? (S.focus === 'colombia' ? 'Temperatura (°C) · mar y tierra' : 'Temperatura del agua (°C)') : layer === 'anom' ? 'Diferencia con lo normal (°C)' : layer === 'trend' ? 'Cambio cada 10 años (°C)' : LAYERS[layer].unit;
+}
+function legWords() {
+  var L = LAYERS[S.layer], el = $('#legWords');
+  if (!el) return;
+  var h = S.relief ? ['🟢 llanura', '⛰️ montaña'] : S.layer === 'air' ? ['🔵 aire más fresco', '🔴 aire más caliente'] : S.layer === 'cmp' ? null : (L && L.hint) || null;
+  el.innerHTML = h ? '<span>' + h[0] + '</span><span>' + h[1] + '</span>' : '';
 }
 function showHover(v, text) {
   var sc = scales[S.layer], dom = sc.domain(), lo = dom[0], hi = dom[dom.length - 1];
@@ -479,6 +545,7 @@ function coordText(lon, lat) {
 
 /* ---------- gráfica ---------- */
 function chartSVG(xs, ys, res, o) {
+  if (window.G) return G.line([{ name: o.name || 'Serie', xs: xs, ys: ys }], { unit: o.unit, varName: o.varName || (o.zero ? 'Diferencia con lo normal' : 'Temperatura'), marker: o.marker, band: o.period, zero: o.zero, aria: o.aria, title: o.title, freq: o.freq, legend: !!o.name });
   var w = 316, h = 160, m = { l: 34, r: 8, t: 8, b: 20 };
   var X = d3.scaleLinear().domain(d3.extent(xs)).range([m.l, w - m.r]);
   var vals = ys.filter(isFinite);
@@ -532,7 +599,10 @@ function verdictHTML(res, o) {
     var ok = t[1] < 0.05;
     return '<div><span class="ok" style="background:' + (ok ? '#22c55e' : '#64748b') + '">' + (ok ? '✓' : '✕') + '</span>' + t[0] + '<span class="p">p ' + pfmt(t[1]) + '</span></div>';
   }).join('');
-  return '' +
+  var head = sig ? (up ? ['📈', 'Sí, se está calentando'] : ['📉', 'Sí, se está enfriando']) : (s1 || s2) ? ['🤔', 'Puede que esté cambiando, pero no es seguro'] : ['➖', 'No hay un cambio claro'];
+  if (o.colors || o.neutral) head = sig ? (up ? ['📈', 'Sí, está aumentando'] : ['📉', 'Sí, está disminuyendo']) : head;
+  return '<div class="plain"><span class="pe">' + head[0] + '</span><div><b>' + head[1] + '</b><span>' + (sig || s1 || s2 ? sfmt(bk, dec) + ' ' + esc(unit) + ' ' + (k === 10 ? 'cada 10 años' : 'por año') + ' · ' : '') + esc(per) + '</span></div></div>' +
+    '<details class="more tech"><summary>Detalle técnico (estadística)</summary>' +
     '<div class="row" style="justify-content:space-between"><span class="lbl">Veredicto · ' + esc(per) + '</span><span class="badge" style="background:' + badge[1] + ';color:' + badge[2] + '">' + badge[0] + '</span></div>' +
     '<div class="row" style="gap:10px"><span class="big" style="color:' + col + '">' + (up ? '↑ ' : '↓ ') + sfmt(bk, dec) + '</span><span class="src" style="line-height:1.25">' + esc(unit) + '<br>' + perL + '</span></div>' +
     '<div class="grid2">' +
@@ -543,12 +613,13 @@ function verdictHTML(res, o) {
     '</div>' +
     '<div><div class="src">Medidor de evidencia</div><div class="gauge"><div class="tr"></div><div class="th"></div><div class="kn" style="left:' + gauge.toFixed(1) + '%"></div></div><div class="gl"><span>Azar</span><span>p = 0,05</span><span>Muy fuerte</span></div></div>' +
     '<div class="tests">' + tests + '</div>' +
-    '<p class="verdict">' + esc(sentence) + '</p>';
+    '<p class="verdict">' + esc(sentence) + '</p></details>';
 }
 
 /* ---------- panel de análisis ---------- */
 function renderAnalysis() {
   var box = $('#analysis');
+  for (var h = 0; h < HOOKS.analysis.length; h++) if (HOOKS.analysis[h]()) return;
   if (S.zone) { renderZone(); return; }
   if (S.layer === 'global') {
     var xs = gistemp.map(function (d) { return d[0]; }), ys = gistemp.map(function (d) { return d[1]; });
@@ -561,7 +632,7 @@ function renderAnalysis() {
     $('#aBody').innerHTML =
       (yv ? '<div class="row" style="align-items:baseline;gap:10px"><span class="big" style="color:' + (yv[1] > 0 ? '#ff7a59' : '#5cb7ff') + '">' + sfmt(yv[1], 2) + ' °C</span><span class="src">en ' + S.year + '</span></div>'
         : '<div class="src">' + S.year + ' aún no termina: NASA publica el promedio anual en enero. El último año completo es ' + gistemp[gistemp.length - 1][0] + '.</div>') +
-      '<div class="chart">' + chartSVG(xs, ys, res, { zero: true, marker: S.year, period: S.period, aria: 'Temperatura global de 1880 a ' + gistemp[gistemp.length - 1][0] }) + '</div>' +
+      '<div class="chart">' + chartSVG(xs, ys, res, { zero: true, varName: 'Diferencia con lo normal', title: 'Temperatura del planeta', marker: S.year, period: S.period, aria: 'Temperatura global de 1880 a ' + gistemp[gistemp.length - 1][0] }) + '</div>' +
       verdictHTML(res, { per: S.period[0] + '–' + S.period[1], dec: 2, unit: '°C', subject: 'La temperatura global' });
     box.hidden = false;
     return;
@@ -572,13 +643,13 @@ function renderAnalysis() {
   var allX = d3.range(Y0, Y0 + NY), allY = allX.map(function (y) { return useVal ? valAt(y, k) : anomAt(y, k); });
   var px2 = d3.range(a, b + 1), py2 = px2.map(function (y) { return useVal ? valAt(y, k) : anomAt(y, k); });
   var r2 = analyze(px2, py2);
-  var cur = hasYear(S.year) ? allY[S.year - Y0] : NaN;
+  var yShow = hasYear(S.year) ? S.year : mapYear(), cur = allY[yShow - Y0];
   $('#aTitle').textContent = oceanName(c[0], c[1]);
   $('#aSub').textContent = coordText(c[0], c[1]) + ' · celda de 4° × 4°';
   $('#aBody').innerHTML =
-    (isFinite(cur) ? '<div class="row" style="align-items:baseline;gap:10px"><span class="big" style="color:' + (useVal ? scales.sst(cur) : (cur > 0 ? '#ff7a59' : '#5cb7ff')) + '">' + (useVal ? fmt(cur, 1) : sfmt(cur, 2)) + ' °C</span><span class="src">' + (useVal ? 'promedio de ' : 'anomalía en ') + S.year + '</span></div>'
-      : '<div class="src">Para ' + S.year + ' no hay dato del mar en el archivo incluido (llega hasta ' + (Y0 + NY - 1) + ').</div>') +
-    '<div class="chart">' + chartSVG(allX, allY, r2, { zero: !useVal, marker: S.year, period: [a, b], aria: 'Serie anual de temperatura del mar en el punto' }) + '</div>' +
+    (isFinite(cur) ? '<div class="row" style="align-items:baseline;gap:10px"><span class="big" style="color:' + (useVal ? scales.sst(cur) : (cur > 0 ? '#ff7a59' : '#5cb7ff')) + '">' + (useVal ? '🌊 ' + fmt(cur, 1) : sfmt(cur, 2)) + ' °C</span><span class="src">' + (useVal ? 'temperatura del agua en ' : (cur >= 0 ? 'más caliente' : 'más frío') + ' de lo normal en ') + yShow + '</span></div>'
+      : '<div class="src">No hay dato del mar en este punto.</div>') +
+    '<div class="chart">' + chartSVG(allX, allY, r2, { zero: !useVal, varName: useVal ? 'Temperatura del mar' : 'Diferencia con lo normal', title: 'Temperatura del mar en este punto', marker: S.year, period: [a, b], aria: 'Serie anual de temperatura del mar en el punto' }) + '</div>' +
     verdictHTML(r2, { per: a + '–' + b, dec: 2, unit: '°C', subject: 'Aquí, la temperatura del mar' });
   box.hidden = false;
 }
@@ -627,9 +698,11 @@ function renderEvents() {
   var card = $('#eventCard');
   if (!evs.length) { card.hidden = true; return; }
   card.innerHTML = evs.map(function (e, i) {
-    return '<div class="e"><div><b>' + e.y + ' · ' + esc(e.t) + '</b><p>' + esc(e.d) + '</p></div><button data-ev="' + i + '">Ver en el globo</button></div>';
+    return '<div class="e"><div><b>📍 ' + e.y + ' · ' + esc(e.t) + '</b></div><button data-ev="' + i + '">Ver</button></div>';
   }).join('');
   card.hidden = false;
+  clearTimeout(renderEvents._t);
+  renderEvents._t = setTimeout(function () { card.hidden = true; }, 9000);   // aviso breve: se oculta solo
   card.querySelectorAll('button[data-ev]').forEach(function (b) {
     b.addEventListener('click', function () {
       var e = evs[+b.getAttribute('data-ev')];
@@ -639,11 +712,11 @@ function renderEvents() {
 }
 function renderTitles() {
   var L = LAYERS[S.layer];
-  $('#layerTitle').textContent = L.title;
+  $('#layerTitle').textContent = L.q || L.title;
   var t;
-  if (S.layer === 'trend') t = 'Periodo ' + Math.max(S.period[0], Y0) + '–' + Math.min(S.period[1], Y0 + NY - 1);
-  else if (!hasYear(S.year)) t = S.year + (S.year === LAST_YEAR ? ' (en curso)' : '') + ' · mar: último dato, ' + mapYear();
-  else t = 'Promedio de enero a diciembre de ' + S.year;
+  if (S.layer === 'trend') t = 'Cambio entre ' + Math.max(S.period[0], Y0) + ' y ' + Math.min(S.period[1], Y0 + NY - 1);
+  else if (!hasYear(S.year) && S.layer !== 'global') t = 'Mostrando ' + mapYear() + ' (el dato más reciente)';
+  else t = 'Año ' + S.year;
   if (S.focus === 'colombia') t = 'Colombia · ' + t;
   $('#layerDate').textContent = t;
   $('#datePill').textContent = 'Año ' + S.year;
@@ -655,6 +728,7 @@ function renderInfo() {
   $('#infoDesc').textContent = L.desc;
   $('#infoSrc').textContent = L.src;
   $('#trendBox').style.display = S.layer === 'trend' ? 'flex' : 'none';
+  $('#periodBox').style.display = S.layer === 'air' || S.layer === 'cmp' ? 'none' : '';
   $('#infoLinks').innerHTML = (LINKS[S.layer] || []).map(function (l) { return '<a href="' + l[1] + '" target="_blank" rel="noopener">› ' + esc(l[0]) + '</a>'; }).join('');
   renderSteps();
 }
@@ -663,6 +737,7 @@ function refresh() {
   renderAnalysis(); renderSteps();
   if (S.focus === 'colombia') renderZoneTemps();
   renderYearTable();
+  HOOKS.refresh.forEach(function (f) { f(); });
 }
 function setYear(y, user) {
   S.year = y; $('#year').value = y;
@@ -671,12 +746,13 @@ function setYear(y, user) {
 }
 function setLayer(id, user) {
   if (id === 'upload') { $('#upZone').textContent = S.zone ? ' · ' + zoneById(S.zone).short : ''; openOverlay('#uploadView'); if (user) setStep(0); return; }
+  if (!LAYERS[id]) return;
   var prevRange = LAYERS[S.layer].range;
   S.layer = id;
-  document.querySelectorAll('.tool').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-layer') === id)); });
+  document.querySelectorAll('.tool[data-layer]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-layer') === id)); });
   var r = LAYERS[id].range;
   if (prevRange[0] !== r[0] || prevRange[1] !== r[1]) {
-    S.period = id === 'global' ? [1970, 2025] : [1970, 2021];
+    S.period = id === 'global' ? [1970, 2025] : id === 'air' ? [1981, 2025] : [1970, 2021];
     S.year = clamp(S.year, tlRange()[0], tlRange()[1]);
   }
   if (user) setStep(0);
@@ -711,17 +787,25 @@ function autoSpin() {
 }
 function stopAuto() { S.auto = false; if (autoRaf) cancelAnimationFrame(autoRaf); autoRaf = null; var b = $('#spinBtn'); if (b) b.setAttribute('aria-pressed', 'false'); }
 function startAuto() { if (S.auto) return; S.auto = true; var b = $('#spinBtn'); if (b) b.setAttribute('aria-pressed', 'true'); autoSpin(); }
+var flyId = 0;
+function cancelFly() { flyId++; }
 function flyTo(ll, select, zTo) {
   stopAuto();
+  if (S.flat) exitFlat(Math.min(zoomK, FLAT_K - 1));
   var z0 = zoomK, z1 = zTo || zoomK;
   var from = rot.slice(), to = [-ll[0], -ll[1]];
   var dl = ((to[0] - from[0]) % 360 + 540) % 360 - 180;
   to[0] = from[0] + dl;
-  var it = d3.interpolate(from, to), t0 = performance.now();
+  var it = d3.interpolate(from, to), t0 = performance.now(), id = ++flyId;
+  // vuelo suave: si el destino está lejos, la cámara se aleja un poco a mitad de camino (como un avión)
+  var dist = d3.geoDistance([-from[0], -from[1]], ll), bump = clamp(dist * 3.2, 0, 0.45);
+  var dur = clamp(650 + dist * 2600, 700, 1300);
   (function tick(now) {
-    var t = Math.min(1, (now - t0) / 900), e = d3.easeCubicInOut(t);
-    rot = it(e); zoomK = z0 + (z1 - z0) * e; $('#zoom').value = zoomK; requestDraw();
+    if (id !== flyId) return;   // otra selección empezó: esta animación se cancela
+    var t = Math.min(1, (now - t0) / dur), e = d3.easeCubicInOut(t);
+    rot = it(e); zoomK = (z0 + (z1 - z0) * e) * (1 - bump * Math.sin(Math.PI * t)); $('#zoom').value = zoomK; requestDraw();
     if (t < 1) requestAnimationFrame(tick);
+    else if (zoomK >= FLAT_K && !S.flat) { if (S.zone) enterFlat(S.zone); else enterFlat(null, [-rot[1], -rot[0]]); }
     else if (select && S.layer !== 'global') {
       var i = cellAt(ll[0], ll[1]);
       if (i !== null) { S.sel = i; setStep(1); renderAnalysis(); renderSteps(); requestDraw(); }
@@ -740,7 +824,7 @@ function geoAt(pt) {
 }
 canvas.addEventListener('pointerdown', function (e) {
   canvas.setPointerCapture(e.pointerId);
-  drag = { x: e.clientX, y: e.clientY, rot: rot.slice(), moved: false };
+  cancelFly(); drag = { x: e.clientX, y: e.clientY, rot: rot.slice(), moved: false };
   stopAuto();
 });
 canvas.addEventListener('pointermove', function (e) {
@@ -770,9 +854,20 @@ canvas.addEventListener('keydown', function (e) {
   if (e.key === '-') setZoom(zoomK / 1.2);
   if (e.key === 'Enter') pick([W / 2, H / 2 + 8]);
 });
-function setZoom(z) { zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK; requestDraw(); }
+var FLAT_K = 8;   // desde este acercamiento el globo se cambia por el mapa satelital con calles (nítido)
+function setZoom(z) {
+  if (S.flat) {
+    if (z < FLAT_K) { exitFlat(z); return; }
+    if (SAT.map) satSetZoom(kToZ(z));
+    return;
+  }
+  if (z >= FLAT_K && W) { zoomK = FLAT_K; enterFlat(null, [-rot[1], -rot[0]], kToZ(Math.min(z, 14))); return; }
+  zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK; requestDraw();
+}
 function hover(pt) {
   if (!D) return;
+  var g0 = geoAt(pt);
+  for (var h = 0; h < HOOKS.hover.length; h++) if (HOOKS.hover[h](pt, g0)) return;
   if (S.focus === 'colombia') {
     var mz = markerAt(pt);
     canvas.style.cursor = mz ? 'pointer' : '';
@@ -790,6 +885,9 @@ function hover(pt) {
   showHover(v, txt + ' · ' + coordText(g[0], g[1]));
 }
 function pick(pt) {
+  if (S.focus === 'colombia' && colPinAt(pt)) { flyTo(COL_CENTER, false, 6.2); return; }
+  var g0 = geoAt(pt);
+  for (var h = 0; h < HOOKS.pick.length; h++) if (HOOKS.pick[h](pt, g0)) return;
   if (S.focus === 'colombia') { var mz = markerAt(pt); if (mz) { selectZone(mz); return; } }
   var g = geoAt(pt);
   if (!g) return;
@@ -816,7 +914,15 @@ function markers() {
   ZONES.forEach(function (z) { m.push({ id: z.id, ll: z.ll, z: z, side: z.side || 'right', sea: 'sanandres' }); if (z.ll2) m.push({ id: z.id, ll: z.ll2, z: z, side: z.side2 || 'right', sea: 'caribe' }); });
   return m;
 }
+var COL_FAR = 3.6;   // con menos acercamiento, Colombia se ve como un solo punto (para no amontonar las zonas)
+function colFar() { return zoomK < COL_FAR; }
+function colPinAt(pt) {
+  if (!colFar() || d3.geoDistance(COL_CENTER, [-rot[0], -rot[1]]) > Math.PI / 2 - 0.05) return false;
+  var p = proj(COL_CENTER); return Math.hypot(p[0] - pt[0], p[1] - pt[1]) < 26;
+}
+var COL_CENTER = [-73.3, 4.3];
 function markerAt(pt) {
+  if (colFar()) return null;
   var center = [-rot[0], -rot[1]], best = null, bd = 18;
   markers().forEach(function (m) {
     if (d3.geoDistance(m.ll, center) > Math.PI / 2 - 0.05) return;
@@ -825,10 +931,43 @@ function markerAt(pt) {
   });
   return best;
 }
+/* ---------- relieve: montañas, cordilleras y llanuras ---------- */
+// [nombre, lon, lat, tipo]  m = montaña/cordillera · p = llanura · v = valle · d = desierto/meseta
+var LANDFORMS_WORLD = [
+  ['Cordillera de los Andes', -68.5, -20, 'm'], ['Montañas Rocosas', -110, 44, 'm'], ['Sierra Madre', -104, 24, 'm'], ['Himalaya', 84, 28.5, 'm'],
+  ['Meseta del Tíbet', 88, 33.5, 'd'], ['Alpes', 10, 46.4, 'm'], ['Montes Urales', 59.5, 58, 'm'], ['Montes Apalaches', -80, 38, 'm'],
+  ['Llanura amazónica', -62, -5, 'p'], ['Grandes Llanuras', -100, 40, 'p'], ['Llanos del Orinoco', -67, 7.5, 'p'], ['La Pampa', -62.5, -35, 'p'],
+  ['Llanura siberiana', 76, 62, 'p'], ['Desierto del Sahara', 5, 23, 'd'], ['Montes Atlas', -5, 32, 'm'], ['Montañas Etíopes', 39, 9, 'm'],
+  ['Montes Zagros', 50, 31, 'm'], ['Gran Cordillera Divisoria', 148, -27, 'm']
+];
+var LANDFORMS_COL = [
+  ['Cordillera Occidental', -75.9, 7.2, 'm', 'right'], ['Cordillera Central', -75.6, 3.6, 'm', 'left'], ['Cordillera Oriental', -73.55, 5.9, 'm'],
+  ['Serranía del Perijá', -72.95, 9.9, 'm'], ['Serranía de La Macarena', -74.15, 2.55, 'm', 'left'], ['Serranía del Baudó', -77.1, 6.15, 'm', 'right'],
+  ['Macizo Colombiano', -76.35, 1.55, 'm'], ['Valle del Magdalena', -74.8, 7.6, 'v', 'left'], ['Valle del Cauca', -76.05, 4.3, 'v', 'right'],
+  ['Llanos Orientales', -70.6, 4.8, 'p'], ['Llanura amazónica', -71.6, -0.6, 'p'], ['Llanura del Caribe', -75.2, 9.4, 'p'],
+  ['Llanura del Pacífico', -77.2, 2.7, 'p', 'right'], ['Desierto de La Guajira', -72.0, 11.7, 'd']
+];
+var LF_STYLE = { m: ['#fcd9a8', '▲ '], p: ['#bbf7d0', ''], v: ['#a5f3fc', '◡ '], d: ['#fde68a', ''] };
+function drawLandforms() {
+  var center = [-rot[0], -rot[1]], list = zoomK >= 3 ? LANDFORMS_COL : LANDFORMS_WORLD;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  list.forEach(function (f) {
+    if (d3.geoDistance([f[1], f[2]], center) > Math.PI / 2 - 0.12) return;
+    var p = proj([f[1], f[2]]), st = LF_STYLE[f[3]];
+    ctx.font = (f[3] === 'm' ? '700 ' : 'italic 600 ') + (zoomK >= 3 ? '13px' : '12px') + ' Inter, system-ui, sans-serif';
+    var txt = st[1] + f[0];
+    ctx.textAlign = f[4] || 'center';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(txt, p[0], p[1]);
+    ctx.fillStyle = st[0]; ctx.fillText(txt, p[0], p[1]);
+  });
+}
 function drawColombia() {
   var center = [-rot[0], -rot[1]];
-  ctx.beginPath(); path(colombia); ctx.fillStyle = 'rgba(251,191,36,0.07)'; ctx.fill();
-  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.6; ctx.stroke();
+  // Colombia en verde claro
+  ctx.beginPath(); path(colombia); if (!S.relief) { ctx.fillStyle = 'rgba(134,239,172,0.42)'; ctx.fill(); }
+  ctx.save(); ctx.shadowColor = 'rgba(74,222,128,0.9)'; ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2.4; ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = '#f0fdf4'; ctx.lineWidth = 0.8; ctx.stroke();
   if (S.zone) {
     var zz = zoneById(S.zone);
     [zz.bbox, zz.bbox2].forEach(function (b) {
@@ -837,6 +976,17 @@ function drawColombia() {
     });
   }
   ctx.textBaseline = 'middle';
+  if (colFar()) {
+    // vista lejana: un solo punto «Colombia» que invita a acercarse
+    if (d3.geoDistance(COL_CENTER, center) > Math.PI / 2 - 0.05) return;
+    var cp = proj(COL_CENTER);
+    ctx.beginPath(); ctx.arc(cp[0], cp[1], 16, 0, 2 * Math.PI); ctx.fillStyle = '#fbbf24'; ctx.fill(); ctx.strokeStyle = '#1a1300'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#1a1300'; ctx.font = '800 13px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('6', cp[0], cp[1] + 0.5);
+    var tl = 'Colombia · toca para acercarte';
+    ctx.font = '700 13px Inter, system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(tl, cp[0] + 22, cp[1]); ctx.fillStyle = '#fff'; ctx.fillText(tl, cp[0] + 22, cp[1]);
+    return;
+  }
   markers().forEach(function (m) {
     if (d3.geoDistance(m.ll, center) > Math.PI / 2 - 0.05) return;
     var p = proj(m.ll), on = S.zone === m.id, r = on ? 13 : 11;
@@ -845,14 +995,37 @@ function drawColombia() {
     ctx.strokeStyle = '#1a1300'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = '#1a1300'; ctx.font = '700 12px Inter, system-ui, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(String(m.z.n), p[0], p[1] + 0.5);
-    if (zoomK >= 2.2) {
+    if (zoomK >= 2.2 && !S.relief && S.layer !== 'air' && !S.dep) {   // mapa limpio: sin nombres de zonas en modo aire o con un departamento elegido
       var tx = p[0] + r + 5, ty = p[1], al = 'left';
       if (m.side === 'left') { tx = p[0] - r - 5; al = 'right'; }
       if (m.side === 'below') { tx = p[0]; ty = p[1] + r + 10; al = 'center'; }
       ctx.font = '600 12px Inter, system-ui, sans-serif'; ctx.textAlign = al;
       ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(m.z.short, tx, ty);
       ctx.fillStyle = on ? '#fde68a' : '#ffffff'; ctx.fillText(m.z.short, tx, ty);
-      var mt = markerTemp(m);
+      var ht = yearTemp(m.id, m.sea, S.year), ha = yearAir(m.id, m.sea, S.year);
+      var mt = null;
+      if (!S.relief && S.layer !== 'air' && !(S.tool === 'cmp' && S.cmp && S.cmp.tab === 'tiempo' && S.cmp.scope === 'colombia')) {
+        var pill = function (txt, col, yy) {
+          ctx.font = '700 12.5px Inter, system-ui, sans-serif';
+          var w2 = ctx.measureText(txt).width, x2 = al === 'left' ? tx - 4 : al === 'right' ? tx - w2 - 4 : tx - w2 / 2 - 4;
+          ctx.fillStyle = 'rgba(5,10,20,0.85)';
+          ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x2, yy - 9, w2 + 8, 18, 5); else ctx.rect(x2, yy - 9, w2 + 8, 18); ctx.fill();
+          ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.stroke();
+          ctx.fillStyle = '#ffffff'; ctx.fillText(txt, tx, yy + 0.5);
+        };
+        if (S.ym === 'cambio') {
+          var wz = warming(m.id, m.sea, Math.min(S.year, LAST_YEAR - 1));
+          if (wz) pill((wz.d >= 0 ? '🔺 ' : '🔻 ') + sfmt(wz.d, 1) + ' °C desde los 80', catOfAnom(wz.d)[2], ty + 15);
+          return;
+        }
+        if (S.ym === 'aire') {
+          var acat = ha ? catOf(AIR_CATS, ha.v) : null;
+          if (ha) pill('Aire ' + acat[1].toLowerCase(), acat[2], ty + 15);
+        } else {
+          var tShow = ht || (S.year === LAST_YEAR ? yearTemp(m.id, m.sea, LAST_YEAR - 1) : null);
+          if (tShow) pill('🌡 ' + fmt(tShow.v, 0) + ' °C' + (tShow.live ? ' ahora' : ''), scales.sst(tShow.v), ty + 15);
+        }
+      }
       if (mt) {
         var ty2 = ty + 15;
         var lbl = fmt(mt.v, 1) + ' °C ' + mt.kind;
@@ -863,9 +1036,9 @@ function drawColombia() {
         ctx.strokeStyle = scales.sst(mt.v); ctx.lineWidth = 1.2; ctx.stroke();
         ctx.fillStyle = d3.color(scales.sst(mt.v)).brighter(0.6).formatHex(); ctx.fillText(lbl, tx, ty2 + 0.5);
       }
-      var lp = liveForMarker(m);
+      var lp = null;
       if (lp) {
-        var ty3 = ty + (mt ? 35 : 15), l3 = '● Ahora ' + fmt(lp.temperatura_c, 1) + ' °C';
+        var ty3 = ty + (HIST ? 55 : mt ? 35 : 15), l3 = '● Ahora ' + fmt(lp.temperatura_c, 1) + ' °C';
         ctx.font = '700 13px Inter, system-ui, sans-serif';
         var tw3 = ctx.measureText(l3).width, bx3 = al === 'left' ? tx - 4 : al === 'right' ? tx - tw3 - 4 : tx - tw3 / 2 - 4;
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
@@ -908,6 +1081,35 @@ function renderLive() {
     : 'Toca «Actualizar» para consultar.';
 }
 setInterval(function () { if (S.focus === 'colombia' && LIVE.status === 'ok') fetchLive(); }, 10 * 60 * 1000);
+/* ---------- historia anual por zona (NASA POWER + CAMS) ---------- */
+var HIST = null;
+var PT_NAME = { nevados: 'Nevado del Ruiz', sierra: 'Sierra Nevada de Santa Marta', amazonia: 'San José del Guaviare', chingaza: 'Páramo de Chingaza', choco: 'Quibdó', sanandres: 'San Andrés', caribe: 'Ciénaga Grande de Santa Marta' };
+function loadHist() {
+  _wc = {};
+  var tryUrl = function (u) { return fetch(u, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+  tryUrl('data/historico.json').catch(function () { return tryUrl(API_BASE + '/api/historico'); })
+    .then(function (j) { if (j && j.puntos && j.puntos.length) { HIST = j; _wc = {}; refresh(); } })
+    .catch(function () { /* sin historia por zona: la app sigue funcionando */ });
+}
+function histPoint(zoneId, sea) {
+  if (!HIST) return null;
+  var name = zoneId === 'caribe' ? PT_NAME[sea || 'sanandres'] : PT_NAME[zoneId];
+  return HIST.puntos.filter(function (p) { return p.nombre === name; })[0] || null;
+}
+function histTemp(pt, y) {
+  if (!pt || !pt.temp) return null;
+  var v = pt.temp[y];
+  if (v === undefined || v === null) return null;
+  if (pt._base === undefined) {
+    var b = []; for (var yy = 1991; yy <= 2020; yy++) if (pt.temp[yy] !== undefined) b.push(pt.temp[yy]);
+    pt._base = b.length >= 20 ? d3.mean(b) : null;
+  }
+  return { v: v, anom: pt._base === null ? null : v - pt._base };
+}
+function histAir(pt, y) {
+  if (!pt || !pt.aire || !pt.aire[y]) return null;
+  return pt.aire[y];
+}
 var ZTP = {
   nevados: [[-75.32, 4.89], [-75.37, 4.82], [-75.33, 4.66]],
   sierra: [[-73.69, 10.84]],
@@ -923,6 +1125,8 @@ function landAt(lon, lat) {
   return v === null || v === undefined ? null : v;
 }
 function zoneTemp(id, seaKey) {
+  var yt = yearTemp(id, seaKey, S.year);
+  if (yt) return { v: yt.v, kind: id === 'caribe' ? 'mar' : 'aire', note: S.year + ' · ' + yt.src };
   if (id === 'caribe') {
     var zz = SSTZ[seaKey || 'sanandres'], y = clamp(S.year, 1970, 1969 + zz.v.length);
     return { v: zz.v[y - 1970], kind: 'mar', note: 'temperatura del mar en ' + y + ' (NOAA ERSSTv5)' };
@@ -932,6 +1136,81 @@ function zoneTemp(id, seaKey) {
   return { v: d3.mean(vals), kind: 'aire', note: 'temperatura media del aire 1950–2000 (WorldClim), en celdas de ~55 km' };
 }
 function markerTemp(m) { return zoneTemp(m.id, m.sea); }
+/* ---------- promedio anual por zona: dato de NASA POWER/CAMS si está; si no, estimación ---------- */
+function gAnom(y) { var g = gistemp && gistemp.filter(function (d) { return d[0] === y; })[0]; return g ? g[1] : null; }
+var _gb = {};
+function gMean(a, b) { var k = a + '-' + b; if (_gb[k] === undefined) _gb[k] = d3.mean(gistemp.filter(function (d) { return d[0] >= a && d[0] <= b; }), function (d) { return d[1]; }); return _gb[k]; }
+function landClim(id) {
+  var vals = (ZTP[id] || []).map(function (p) { return landAt(p[0], p[1]); }).filter(function (v) { return v !== null; });
+  return vals.length ? d3.mean(vals) : null;
+}
+var _sb = {};
+function seaBase(k) { if (_sb[k] === undefined) _sb[k] = d3.mean(SSTZ[k].v.slice(1991 - 1970, 2021 - 1970)); return _sb[k]; }
+function yearTemp(id, sea, y) {
+  var hp = histPoint(id, sea), ht = histTemp(hp, y);
+  if (ht) return { v: ht.v, anom: ht.anom, src: 'NASA POWER (MERRA-2) · medido en la zona' };
+  if (y === LAST_YEAR) {
+    var lp = liveForMarker({ id: id, sea: sea || 'sanandres' });
+    return lp ? { v: lp.temperatura_c, anom: null, live: true, src: 'Ahora mismo (Google Weather)' } : null;
+  }
+  if (!gistemp) return null;
+  if (id === 'caribe') {
+    var k = sea || 'sanandres', zz = SSTZ[k], i = y - 1970;
+    if (i >= 0 && i < zz.v.length) return { v: zz.v[i], anom: zz.v[i] - seaBase(k), src: 'Temperatura del mar · NOAA ERSSTv5' };
+    var g1 = gAnom(y); if (g1 === null || y < 1970) return null;
+    var a1 = g1 - gMean(1991, 2020);
+    return { v: seaBase(k) + a1, anom: a1, est: true, src: 'Estimado: mar 1991–2020 + anomalía global NASA GISTEMP' };
+  }
+  var b = landClim(id), g = gAnom(y);
+  if (b === null || g === null) return null;
+  return { v: b + (g - gMean(1950, 2000)), anom: g - gMean(1991, 2020), est: true, src: 'Estimado: clima de la zona (WorldClim) + anomalía de NASA GISTEMP' };
+}
+/* ---------- impacto del calentamiento por zona ---------- */
+var LAPSE = 0.6;   // °C que baja la temperatura por cada 100 m de altura (Britannica)
+var MOUNTAIN = { nevados: 1, sierra: 1, chingaza: 1 };
+function zoneSeries(id, sea) {
+  var xs = [], ys = [];
+  for (var y = 1981; y < LAST_YEAR; y++) { var t = yearTemp(id, sea, y); if (t && !t.live) { xs.push(y); ys.push(t.v); } }
+  return { xs: xs, ys: ys, measured: !!histPoint(id, sea) };
+}
+var _wc = {};
+function warming(id, sea, y) {
+  var key = id + (sea || '') + (HIST ? 'h' : 'e');
+  if (!_wc[key]) {
+    var se = zoneSeries(id, sea), b = [];
+    se.xs.forEach(function (x, i) { if (x <= 1990) b.push(se.ys[i]); });
+    _wc[key] = { base: b.length >= 5 ? d3.mean(b) : null, se: se };
+  }
+  var w = _wc[key];
+  if (w.base === null) return null;
+  // promedio de los 5 años que terminan en y (suaviza años sueltos como El Niño)
+  var v = [];
+  w.se.xs.forEach(function (x, i) { if (x <= y && x > y - 5) v.push(w.se.ys[i]); });
+  if (v.length < 3) return null;
+  var d = d3.mean(v) - w.base;
+  return { d: d, m: MOUNTAIN[id] ? d / LAPSE * 100 : null, est: !w.se.measured, from: Math.max(y - 4, w.se.xs[0]), to: Math.min(y, w.se.xs[w.se.xs.length - 1]) };
+}
+var AIR_REF = { chingaza: 1 };   // índice en AIR_ROWS: Chingaza usa Bogotá; el resto, el promedio nacional
+function airSeries(row, y) {
+  var v = AIR_ROWS[row].v;
+  if (v[y]) return { v: v[y][0], ref: v[y][1] };
+  var ys = Object.keys(v).map(Number).sort(function (a, b) { return a - b; }), lo = null, hi = null;
+  ys.forEach(function (k) { if (k < y) lo = k; if (k > y && hi === null) hi = k; });
+  if (lo === null || hi === null) return null;
+  return { v: v[lo][0] + (v[hi][0] - v[lo][0]) * (y - lo) / (hi - lo), interp: true };
+}
+function yearAir(id, sea, y) {
+  var ha = histAir(histPoint(id, sea), y);
+  if (ha) return { v: ha.v, parcial: ha.parcial, src: 'Copernicus CAMS · medido en la zona' };
+  if (y === LAST_YEAR) {
+    var lp = liveForMarker({ id: id, sea: sea || 'sanandres' });
+    return lp && lp.aire && lp.aire.pm25 !== undefined && lp.aire.pm25 !== null ? { v: lp.aire.pm25, live: true, src: 'Ahora mismo (Google Air Quality)' } : null;
+  }
+  var row = AIR_REF[id] !== undefined ? AIR_REF[id] : 0, r = airSeries(row, y);
+  if (!r && row) { row = 0; r = airSeries(0, y); }
+  if (!r) return null;
+  return { v: r.v, est: true, interp: r.interp, src: (row ? 'Referencia: Bogotá' : 'Referencia: promedio de Colombia') + (r.interp ? ' (interpolado)' : '') };
+}
 function renderZoneTemps() {
   var box = $('#ztemps');
   if (!box || !CLIMA) return;
@@ -939,7 +1218,7 @@ function renderZoneTemps() {
   rows.sort(function (a, b) { return b.t.v - a.t.v; });
   box.innerHTML = rows.map(function (r) {
     return '<button class="trow" data-zone="' + r.z.id + '"><span class="tn">' + r.z.n + '. ' + esc(r.z.short) + '</span><span class="tb"><span style="width:' + clamp(r.t.v / 30 * 100, 4, 100) + '%;background:' + scales.sst(r.t.v) + '"></span></span><span class="tv">' + fmt(r.t.v, 1) + ' °C</span></button>';
-  }).join('') + '<div class="src">Aire: WorldClim (promedio 1950–2000, celdas de ~55 km). Caribe: temperatura del mar de ' + clamp(S.year, 1970, 2021) + '.</div>';
+  }).join('') + '<div class="src">' + (HIST ? 'Temperatura media de ' + S.year + ' en cada zona (NASA POWER).' : 'Promedio de ' + S.year + '. Tierra: clima de la zona (WorldClim) ajustado con la anomalía del año (NASA GISTEMP). Caribe: temperatura del mar (NOAA ERSSTv5).') + '</div>';
   box.querySelectorAll('[data-zone]').forEach(function (b) { b.addEventListener('click', function () { selectZone(b.getAttribute('data-zone')); }); });
 }
 function renderZoneList() {
@@ -953,13 +1232,15 @@ function renderZoneList() {
 }
 function selectZone(id) {
   var z = zoneById(id);
-  S.zone = id; S.sel = null; S.zoneTab = 'resumen';
+  S.zone = id; S.sel = null; S.zoneTab = 'impacto';
+  if (!$('#ytable').classList.contains('collapsed')) $('#ytToggle').click();   // más espacio para la ficha de la zona
   setStep(1); renderZoneList(); setupTimeline(); renderEvents();
   flyTo(z.ll2 ? [(z.ll[0] + z.ll2[0]) / 2, (z.ll[1] + z.ll2[1]) / 2] : z.ll, false, z.ll2 ? 5.2 : 9.5);
   renderAnalysis(); renderSteps();
 }
 function setFocus(f) {
   S.focus = f;
+  HOOKS.focus.forEach(function (h) { h(f); });
   document.querySelectorAll('[data-focus]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-focus') === f)); });
   $('#zoneBox').hidden = f !== 'colombia';
   if (f === 'colombia') {
@@ -973,6 +1254,8 @@ function setFocus(f) {
     flyTo([-75, 8], false, 1);
     S.year = clamp(S.year, tlRange()[0], tlRange()[1]);
   }
+  if (S.relief) legendRelief(); else if (S.layer === 'sst') $('#legUnit').textContent = f === 'colombia' ? '°C · mar: ERSSTv5 · tierra de Colombia: WorldClim' : '°C · temperatura del mar: NOAA ERSSTv5';
+  dataTexDirty = true;
   renderZoneList(); setupTimeline(); refresh();
 }
 var PALETTE = ['#5cc8ff', '#fbbf24', '#f472b6', '#a3e635'];
@@ -1009,7 +1292,7 @@ function glacierBlock(names) {
 function sstBlock(key) {
   var zz = SSTZ[key], xs = d3.range(1970, 1970 + zz.v.length), ys = zz.v;
   var res = analyze(xs, ys);
-  return '<div class="blk"><h3>Temperatura del mar · ' + esc(zz.name) + '</h3><div class="chart">' + chartSVG(xs, ys, res, { marker: S.year, aria: 'Temperatura del mar ' + zz.name }) + '</div>' +
+  return '<div class="blk"><h3>Temperatura del mar · ' + esc(zz.name) + '</h3><div class="chart">' + chartSVG(xs, ys, res, { marker: S.year, varName: 'Temperatura del mar', aria: 'Temperatura del mar ' + zz.name }) + '</div>' +
     verdictHTML(res, { per: '1970–2021', dec: 2, unit: '°C', subject: 'La temperatura del mar' }) +
     '<div class="src">Promedio anual de NOAA ERSSTv5 en una ' + esc(zz.cell) + '.</div></div>';
 }
@@ -1043,7 +1326,114 @@ function deforBlock() {
     '<div class="blk"><h3>Departamentos con más deforestación en ' + DEFOR_DEP_YEAR + ' (ha)</h3>' + deps + '<div class="src">Fuente: <a href="' + SRC.defor25dep[1] + '" target="_blank" rel="noopener">IDEAM vía Mongabay</a></div></div>';
 }
 function chartSVG_placeholder(svg) { return svg.node().outerHTML; }
+function cite(k) { var s2 = SRC[k]; return ' <a href="' + s2[1] + '" target="_blank" rel="noopener">' + esc(s2[0]) + '</a>'; }
+function mountainSVG(top, shift, bands, noTop) {
+  // bands: [[desde, hasta, nombre, color]] en metros
+  var W = 340, H = 210, y0 = 600, y1 = Math.max(top, 4800) + 200;
+  var Y = function (m) { return H - 18 - (m - y0) / (y1 - y0) * (H - 30); };
+  var peak = 'M20,' + (H - 18) + ' L150,' + Y(top) + ' L175,' + (Y(top) + 6) + ' L320,' + (H - 18) + ' Z';
+  var clipId = 'mc' + Math.round(Math.random() * 1e6);
+  var g = '<defs><clipPath id="' + clipId + '"><path d="' + peak + '"/></clipPath></defs>';
+  var draw = function (dx, sh, op) {
+    return '<g clip-path="url(#' + clipId + ')" opacity="' + op + '">' + bands.map(function (b) {
+      var a1 = Y(Math.min(b[1] + sh, y1)), a0 = Y(b[0] + sh);
+      return '<rect x="0" y="' + a1 + '" width="' + W + '" height="' + Math.max(0, a0 - a1) + '" fill="' + b[3] + '"/>';
+    }).join('') + '</g>';
+  };
+  var labels = bands.map(function (b) {
+    var ym = Y((b[0] + Math.min(b[1], top)) / 2);
+    return ym > 10 && ym < H - 20 ? '<text x="232" y="' + (ym + 4) + '" font-size="10.5" fill="#e6eef5">' + esc(b[2]) + '</text>' : '';
+  }).join('');
+  var lines = bands.slice(1).map(function (b) {
+    var a = Y(b[0]), c = Y(b[0] + shift);
+    return '<line x1="70" x2="226" y1="' + a + '" y2="' + a + '" stroke="#e6eef5" stroke-dasharray="3 3" stroke-width="0.8" opacity="0.6"/>' +
+      (shift > 5 ? '<path d="M120,' + a + ' L120,' + (c + 4) + '" stroke="#ff7a59" stroke-width="2" marker-end="url(#ar)"/>' : '');
+  }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Franjas de clima de la montaña subiendo ' + Math.round(shift) + ' m">' +
+    '<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7a59"/></marker></defs>' + g +
+    draw(0, shift, 1) + '<path d="' + peak + '" fill="none" stroke="#cbd5e1" stroke-width="1.2"/>' + lines + labels +
+    '<text x="8" y="16" font-size="11" fill="#ff7a59" font-weight="700">▲ cada franja subió ' + fmt(shift, 0) + ' m</text><text x="8" y="30" font-size="10" fill="#94a3b8">línea punteada = límite en los años 80</text>' +
+    (noTop ? '' : '<text x="150" y="' + (Y(top) - 6) + '" font-size="10.5" fill="#cbd5e1" text-anchor="middle">' + fmt(top, 0) + ' m</text>') + '</svg>';
+}
+function impactHTML(z) {
+  var sea = z.id === 'caribe' ? 'sanandres' : null;
+  var se = zoneSeries(z.id, sea), out = '';
+  var w = warming(z.id, sea, Math.min(S.year, LAST_YEAR - 1)), wLast = warming(z.id, sea, LAST_YEAR - 1);
+  var recent = (function () { var v = []; se.xs.forEach(function (x, i) { if (x >= 2016) v.push(se.ys[i]); }); var b = []; se.xs.forEach(function (x, i) { if (x <= 1990) b.push(se.ys[i]); }); return v.length && b.length ? d3.mean(v) - d3.mean(b) : null; })();
+  if (se.xs.length > 6) {
+    var res = analyze(se.xs, se.ys);
+    out += '<div class="blk"><h3>¿Cuánto se ha calentado?</h3>' +
+      '<div class="grid2"><div class="kpi"><div class="k">Últimos 10 años frente a los 80</div><div class="v" style="color:#ff7a59">' + (recent !== null ? sfmt(recent, 2) + ' °C' : '—') + '</div></div>' +
+      '<div class="kpi"><div class="k">' + (w ? 'Promedio ' + w.from + '–' + w.to + ' frente a los 80' : 'Tendencia') + '</div><div class="v">' + (w ? sfmt(w.d, 2) + ' °C' : '—') + '</div></div></div>' +
+      '<div class="chart">' + chartSVG(se.xs, se.ys, res, { marker: S.year, varName: 'Temperatura media anual', aria: 'Temperatura anual en ' + z.short }) + '</div>' +
+      verdictHTML(res, { per: se.xs[0] + '–' + se.xs[se.xs.length - 1], dec: 2, unit: '°C', subject: 'La temperatura' }) +
+      '<div class="src">' + (se.measured ? 'Temperatura media anual del aire medida en la zona (NASA POWER, MERRA-2).' : 'Estimado: clima de la zona (WorldClim) + anomalía anual de NASA GISTEMP. Con «npm run historico» pasa a ser medido.') + '</div></div>';
+  }
+  var dT = recent !== null ? Math.max(recent, 0) : 0, shift = dT / LAPSE * 100;
+  if (z.id === 'nevados') {
+    out += '<div class="blk"><h3>El clima sube la montaña</h3><p class="verdict">La temperatura baja unos 0,6 °C por cada 100 m de altura' + cite('gradiente') + '. Con ' + sfmt(dT, 2) + ' °C más, cada franja de clima queda unos <b>' + fmt(shift, 0) + ' m más arriba</b>: el páramo y el superpáramo suben y el glaciar se queda sin el frío que necesita en la parte baja.</p>' +
+      mountainSVG(5321, shift, [[600, 2800, 'Bosque andino', '#166534'], [2800, 3300, 'Bosque altoandino', '#15803d'], [3300, 4100, 'Páramo', '#a3a34a'], [4100, 4800, 'Superpáramo', '#8b7d6b'], [4800, 6000, 'Glaciar', '#e0f2fe']]) +
+      '<div class="src">Franjas aproximadas; la flecha muestra el desplazamiento por el calentamiento medido.</div></div>' +
+      '<div class="blk"><h3>Los glaciares se están yendo</h3>' + impactRows([['Nevado del Ruiz', 'Nevado del Ruiz'], ['Nevado Santa Isabel', 'Santa Isabel'], ['Nevado del Tolima', 'Tolima']]) +
+      '<p class="verdict">Mientras la zona se calentaba, el Santa Isabel perdió casi todo su hielo y su glaciar Conejeras desapareció en 2024. Menos glaciar y páramo significa menos agua guardada para los más de 3 millones de personas que dependen del parque.</p><div class="src">IDEAM' + cite('ideamPpt') + cite('bluSI') + cite('minAmbNev') + '</div></div>';
+  } else if (z.id === 'sierra') {
+    out += '<div class="blk"><h3>El clima sube la montaña</h3><p class="verdict">Con ' + sfmt(dT, 2) + ' °C más, las franjas de clima suben unos <b>' + fmt(shift, 0) + ' m</b>' + cite('gradiente') + '. En la montaña costera más alta del mundo, eso empuja páramos y cultivos hacia arriba y deja a los glaciares sin frío.</p>' +
+      mountainSVG(5775, shift, [[600, 2500, 'Bosque', '#166534'], [2500, 3300, 'Bosque altoandino', '#15803d'], [3300, 4100, 'Páramo', '#a3a34a'], [4100, 4900, 'Superpáramo', '#8b7d6b'], [4900, 6200, 'Glaciar', '#e0f2fe']]) + '</div>' +
+      '<div class="blk"><h3>Glaciares de la Sierra</h3>' + impactRows([['Sierra Nevada de Santa Marta', 'Sierra Nevada']]) +
+      '<p class="verdict">Las heladas de madrugada y el calor del mediodía arruinan cosechas, y en enero de 2024 Santa Marta llegó a un récord de 40 °C.</p><div class="src">' + cite('ideamPpt') + cite('afpSierra') + '</div></div>';
+  } else if (z.id === 'chingaza') {
+    out += '<div class="blk"><h3>El páramo se queda sin espacio</h3><p class="verdict">Con ' + sfmt(dT, 2) + ' °C más, el clima de páramo sube unos <b>' + fmt(shift, 0) + ' m</b>' + cite('gradiente') + '. Como la montaña se acaba, el páramo no tiene hacia dónde subir y se encoge; las especies tienen que buscar zonas más altas' + cite('iriParamo') + '.</p>' +
+      mountainSVG(4000, shift, [[600, 2800, 'Bosque andino', '#166534'], [2800, 3200, 'Bosque altoandino', '#15803d'], [3200, 4200, 'Páramo', '#a3a34a']], true) + '</div>' +
+      '<div class="blk"><h3>Y eso es agua para Bogotá</h3><div class="grid2"><div class="kpi"><div class="k">Agua de Bogotá que sale de Chingaza</div><div class="v">≈ 70 %</div></div><div class="kpi"><div class="k">Páramo de Chingaza que dejaría de ser apto (2041–2060, época seca)</div><div class="v">39–52 %</div></div></div>' +
+      '<p class="verdict">El páramo funciona como una esponja que guarda y suelta el agua. Con más calor y menos lluvia, en 2024 el embalse bajó a 16,97 % y Bogotá tuvo un año de racionamiento.</p><div class="src">' + cite('chingaza') + cite('paramoChingaza') + cite('racionNivel') + '</div></div>';
+  } else if (z.id === 'caribe') {
+    var sz = SSTZ.sanandres, sx = sz.v.map(function (_, i) { return 1970 + i; }), sres = analyze(sx, sz.v);
+    out += '<div class="blk"><h3>El mar se calienta y el coral se blanquea</h3><div class="chart">' + chartSVG(sx, sz.v, sres, { marker: S.year, varName: 'Temperatura del mar', aria: 'Temperatura del mar en San Andrés' }) + '</div>' +
+      verdictHTML(sres, { per: '1970–2021', dec: 2, unit: '°C', subject: 'La temperatura del mar en San Andrés' }) +
+      '<p class="verdict">Los corales se estresan cuando el agua pasa 1 °C por encima de su máximo habitual de verano' + cite('crw') + '. Cada décima de calentamiento de fondo hace más fácil cruzar ese umbral en las olas de calor: en 2023 un blanqueamiento masivo mató casi todo el coral cuerno de alce de Little Reef.</p>' +
+      '<div class="grid2"><div class="kpi"><div class="k">Cobertura de coral, 1995</div><div class="v">≈ 45 %</div></div><div class="kpi"><div class="k">Cobertura de coral, 2024</div><div class="v" style="color:#ff7a59">1,13 %</div></div></div><div class="src">NOAA ERSSTv5 ·' + cite('coral') + '</div></div>';
+  } else if (z.id === 'amazonia') {
+    out += '<div class="blk"><h3>Calor y deforestación</h3>' + deforBlock() + '<p class="verdict">La selva enfría el aire al transpirar agua. Más calor y menos bosque significan suelos más secos y más riesgo de incendios en la temporada seca.</p></div>';
+  } else if (z.id === 'choco') {
+    out += '<div class="blk"><h3>Una de las zonas más lluviosas del planeta</h3><p class="verdict">Aquí llueven entre 8.000 y 13.000 mm al año' + cite('lloro') + '. El calentamiento se suma a una región muy húmeda: para ver si la lluvia también está cambiando, usa la pestaña «Investiga» y descarga la lluvia de NASA GPM.</p></div>';
+  }
+  return out || '<p class="verdict">Aún no hay datos de temperatura para esta zona.</p>';
+}
+function impactRows(pairs) {
+  return pairs.map(function (p) {
+    var g = GLACIER[p[0]]; if (!g) return '';
+    var a = g.filter(function (d) { return d[0] === 1985; })[0], b = g[g.length - 1];
+    var pct = (b[1] - a[1]) / a[1] * 100;
+    return '<div class="row" style="gap:8px;flex-wrap:nowrap;margin:4px 0"><span style="width:92px;font-size:12.5px">' + esc(p[1]) + '</span>' +
+      '<span class="tb" style="flex:1;position:relative"><span style="width:100%;background:#334155"></span><span style="position:absolute;left:0;top:0;bottom:0;width:' + clamp(b[1] / a[1] * 100, 1, 100) + '%;background:#7dd3fc;border-radius:3px"></span></span>' +
+      '<span style="white-space:nowrap;text-align:right;font-size:12px">' + fmt(a[1], 2) + ' → ' + fmt(b[1], 2) + ' km² <b style="color:#ff7a59">' + sfmt(pct, 0) + ' %</b></span></div>';
+  }).join('') + '<div class="src">Área glaciar 1985 → ' + 'último dato. Barra: lo que queda.</div>';
+}
+function histBlock(z) {
+  var keys = z.id === 'caribe' ? ['sanandres', 'caribe'] : [null];
+  return keys.map(function (k) {
+    var pt = histPoint(z.id, k);
+    if (!pt) return '';
+    var ys = Object.keys(pt.temp).map(Number).sort(function (a, b) { return a - b; });
+    var h2 = '';
+    if (ys.length > 6) {
+      var vs = ys.map(function (y) { return pt.temp[y]; }), res = analyze(ys, vs);
+      h2 += '<div class="blk"><h3>Temperatura del aire · ' + esc(pt.nombre) + '</h3><div class="chart">' + chartSVG(ys, vs, res, { marker: S.year, varName: 'Temperatura del aire', aria: 'Temperatura anual en ' + pt.nombre }) + '</div>' +
+        verdictHTML(res, { per: ys[0] + '–' + ys[ys.length - 1], dec: 2, unit: '°C', subject: 'La temperatura del aire' }) +
+        '<div class="src">' + esc(HIST.fuentes.temperatura) + '.</div></div>';
+    }
+    var ay = Object.keys(pt.aire || {}).map(Number).sort(function (a, b) { return a - b; });
+    if (ay.length) {
+      h2 += '<div class="blk"><h3>Calidad del aire (PM2.5) · ' + esc(pt.nombre) + '</h3>' + ay.map(function (y) {
+        var a = pt.aire[y], c = catOf(AIR_CATS, a.v);
+        return '<div class="row" style="gap:8px;flex-wrap:nowrap"><span style="width:62px;font-size:12.5px">' + y + (a.parcial ? '*' : '') + '</span><span class="tb" style="flex:1"><span style="width:' + clamp(a.v / 35 * 100, 4, 100) + '%;background:' + c[2] + '"></span></span><span style="width:70px;text-align:right;font-size:12.5px">' + fmt(a.v, 1) + ' µg/m³</span>' + badge(c) + '</div>';
+      }).join('') + '<div class="src">' + esc(HIST.fuentes.aire) + '. * año en curso.</div></div>';
+    }
+    return h2;
+  }).join('');
+}
 function zoneTabHTML(z) {
+  if (S.zoneTab === 'impacto') return impactHTML(z);
   if (S.zoneTab === 'resumen') {
     return '<ul class="facts">' + z.facts.map(function (f) {
       var src = SRC[f[1]];
@@ -1051,13 +1441,15 @@ function zoneTabHTML(z) {
     }).join('') + '</ul>';
   }
   if (S.zoneTab === 'datos') {
+    var histHTML = histBlock(z);
+    if (!z.data.length && histHTML) return histHTML;
     if (!z.data.length) return '<p class="verdict">Para esta zona aún no hay una serie incluida en la app. En la pestaña «Investiga con NASA» tienes el recuadro exacto y las variables para descargar la lluvia de GPM y analizarla aquí mismo.</p>';
     return z.data.map(function (d) {
       if (d.indexOf('glacier:') === 0) return glacierBlock(d.slice(8).split(','));
       if (d.indexOf('sst:') === 0) return sstBlock(d.slice(4));
       if (d === 'defor') return deforBlock();
       return '';
-    }).join('');
+    }).join('') + histHTML;
   }
   if (S.zoneTab === 'investiga') {
     var boxes = [z.bbox].concat(z.bbox2 ? [z.bbox2] : []);
@@ -1078,8 +1470,9 @@ function renderZone() {
   var z = zoneById(S.zone);
   $('#aTitle').textContent = z.n + '. ' + z.name;
   $('#aSub').textContent = z.where;
-  var tabs = [['resumen', 'Resumen'], ['datos', 'Datos'], ['investiga', 'Investiga'], ['eventos', 'Eventos']];
+  var tabs = [['impacto', 'Impacto'], ['resumen', 'Resumen'], ['datos', 'Datos'], ['investiga', 'Investiga'], ['eventos', 'Eventos']];
   $('#aBody').innerHTML =
+    '<button class="btn gold zsat" id="zSatBtn">🛰 Ver la zona en satélite (zoom)</button>' +
     '<div class="chips">' + z.chips.map(function (c) { return '<div class="chip"><b>' + esc(c[0]) + '</b><span>' + esc(c[1]) + '</span></div>'; }).join('') + '</div>' +
     (function () {
       var t1 = zoneTemp(z.id, 'sanandres'), t2 = z.ll2 ? zoneTemp(z.id, 'caribe') : null;
@@ -1103,6 +1496,7 @@ function renderZone() {
     '<div class="tabs" role="tablist">' + tabs.map(function (t) { return '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (S.zoneTab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div class="tabbody" role="tabpanel">' + zoneTabHTML(z) + '</div>';
   var body = $('#aBody');
+  $('#zSatBtn').addEventListener('click', function () { openSat(z.id); });
   body.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () { S.zoneTab = b.getAttribute('data-tab'); renderZone(); }); });
   body.querySelectorAll('[data-copy]').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1124,7 +1518,7 @@ document.querySelectorAll('[data-focus]').forEach(function (b) { b.addEventListe
 $('#liveBtn').addEventListener('click', fetchLive);
 
 /* ---------- tabla por año: calidad del aire y temperatura ---------- */
-S.ym = 'aire';
+S.ym = 'temp';
 var AIR_CATS = [[5, 'Cumple guía OMS', '#15803d'], [10, 'Aceptable', '#4d7c0f'], [15, 'Moderada', '#a16207'], [25, 'Dañina a largo plazo', '#c2410c'], [35, 'Mala', '#b91c1c'], [Infinity, 'Muy mala', '#7f1d1d']];
 var TA_CATS = [[-0.5, 'Mucho más frío', '#1d4ed8'], [-0.15, 'Más frío', '#2563eb'], [0.15, 'Normal', '#475569'], [0.5, 'Más cálido', '#c2410c'], [1.0, 'Mucho más cálido', '#b91c1c'], [Infinity, 'Extremo', '#7f1d1d']];
 var TABS_CATS = [[10, 'Frío', '#1d4ed8'], [18, 'Fresco', '#0e7490'], [24, 'Templado', '#4d7c0f'], [30, 'Cálido', '#c2410c'], [Infinity, 'Muy caluroso', '#b91c1c']];
@@ -1158,6 +1552,27 @@ function renderYearTable() {
   $('#ytYear').textContent = y + (y === LAST_YEAR ? ' · en curso' : '');
   document.querySelectorAll('[data-ym]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-ym') === S.ym)); });
   var html = '';
+  if (S.focus === 'colombia') {
+    var order = [['nevados'], ['sierra'], ['caribe', 'sanandres'], ['caribe', 'caribe'], ['amazonia'], ['chingaza'], ['choco']];
+    var zr = order.map(function (o) {
+      var z = zoneById(o[0]), pt = histPoint(o[0], o[1]), nm = o[0] === 'caribe' ? PT_NAME[o[1]] : z.short;
+      if (S.ym === 'cambio') {
+        var w2 = warming(o[0], o[1], Math.min(y, LAST_YEAR - 1)), c3 = w2 ? catOfAnom(w2.d) : null;
+        return '<tr><td>' + z.n + '. ' + esc(nm) + (w2 && w2.m !== null ? '<small>Las franjas de clima ' + (w2.m >= 0 ? 'subieron ' : 'bajaron ') + fmt(Math.abs(w2.m), 0) + ' m</small>' : '') + '</td><td class="v">' + (w2 ? sfmt(w2.d, 2) + ' °C' : '—') + '</td><td>' + (c3 ? badge(c3) : badge([0, 'Sin dato', '#334155'])) + '</td></tr>';
+      }
+      if (S.ym === 'aire') {
+        var a2 = yearAir(o[0], o[1], y);
+        return '<tr><td>' + z.n + '. ' + esc(nm) + (a2 ? '<small>' + esc(a2.src) + '</small>' : '') + '</td><td class="v">' + (a2 ? fmt(a2.v, 1) + ' µg/m³' : '—') + '</td><td>' + (a2 ? badge(catOf(AIR_CATS, a2.v)) + (a2.parcial ? '<small>año parcial</small>' : '') : badge([0, 'Sin dato', '#334155'])) + '</td></tr>';
+      }
+      var t2 = yearTemp(o[0], o[1], y), c2 = t2 && t2.anom !== null ? catOfAnom(t2.anom) : null;
+      return '<tr><td>' + z.n + '. ' + esc(nm) + (t2 ? '<small>' + (t2.anom !== null ? sfmt(t2.anom, 2) + ' °C frente a 1991–2020 · ' : '') + esc(t2.src) + '</small>' : '') + '</td><td class="v">' + (t2 ? fmt(t2.v, 1) + ' °C' : '—') + '</td><td>' + (c2 ? badge(c2) : badge([0, 'Sin dato', '#334155'])) + '</td></tr>';
+    }).join('');
+    html += '<div class="yt-sub">Zonas de Colombia · promedio de ' + y + '</div><table class="yt"><thead><tr><th>Zona</th><th style="text-align:right">' + (S.ym === 'aire' ? 'PM2.5' : S.ym === 'cambio' ? 'Cambio' : 'Temp. media') + '</th><th>Condición</th></tr></thead><tbody>' + zr + '</tbody></table>';
+    if (S.ym === 'cambio') html += '<div class="src">Cuánto más caliente estuvieron los 5 años hasta ' + Math.min(y, LAST_YEAR - 1) + ' que el promedio 1981–1990 de cada zona (5 años para que un solo año de El Niño no engañe). En las montañas, cada 0,6 °C de calentamiento equivale a que el clima «sube» unos 100 m (' + srcLink('gradiente') + '): plantas, cultivos y animales tienen que subir con él. Toca una zona y abre «Impacto» para ver qué significa allí.</div>';
+    else html += HIST ? '<div class="src">' + esc(S.ym === 'aire' ? HIST.fuentes.aire + '. Disponible desde 2023.' : HIST.fuentes.temperatura + '. Disponible desde 1981; la condición compara con el promedio 1991–2020 de cada zona.') + '</div>'
+      : '<div class="src">' + (S.ym === 'aire' ? 'Promedio anual de PM2.5 (desde 1990). Las zonas usan la medición más cercana disponible: Bogotá para Chingaza y el promedio de Colombia para las demás. Con <b>npm run historico</b> cada zona pasa a tener su propio dato (Copernicus CAMS).' : 'Promedio anual (1970–2025). Tierra: clima de la zona ajustado con la anomalía del año de NASA GISTEMP; Caribe: temperatura del mar medida (NOAA ERSSTv5). Con <b>npm run historico</b> cada zona pasa a tener su dato medido (NASA POWER).') + '</div>';
+    html += '<div class="yt-sub">Referencia</div>';
+  }
   if (S.ym === 'aire') {
     var rows = AIR_ROWS.map(function (r) {
       var d = r.v[y];
@@ -1170,6 +1585,10 @@ function renderYearTable() {
     var airLab = ['≤5', '5–10', '10–15', '15–25', '25–35', '>35'];
     html += '<div class="yt-legend">' + AIR_CATS.map(function (c, i) { return '<span class="cat" style="background:' + c[2] + '" title="' + esc(c[1]) + '">' + airLab[i] + '</span>'; }).join('') + '</div>' +
       '<div class="src">Promedio anual de PM2.5. Condición según la guía de la OMS de 2021 (5 µg/m³) y sus metas intermedias; la norma anual de Colombia es 25 µg/m³ (' + srcLink('normaCol') + '). Hasta 2017: exposición modelada (GBD); desde 2018: estaciones (IQAir). Los métodos no son iguales.</div>';
+  } else if (S.ym === 'cambio' && S.focus !== 'colombia') {
+    html += '<div class="src">Entra a <b>Colombia</b> para ver cuánto se ha calentado cada zona y qué le está pasando.</div>';
+  } else if (S.ym === 'cambio') {
+    html = html.replace('<div class="yt-sub">Referencia</div>', '');
   } else {
     var g = gistemp.filter(function (d) { return d[0] === y; })[0];
     var trow = function (name, a, note) {
@@ -1188,7 +1607,7 @@ function renderYearTable() {
   }
   box.innerHTML = html;
 }
-document.querySelectorAll('[data-ym]').forEach(function (b) { b.addEventListener('click', function () { S.ym = b.getAttribute('data-ym'); renderYearTable(); }); });
+document.querySelectorAll('[data-ym]').forEach(function (b) { b.addEventListener('click', function () { S.ym = b.getAttribute('data-ym'); renderYearTable(); requestDraw(); }); });
 $('#ytToggle').addEventListener('click', function () {
   var t = $('#ytable'), c = t.classList.toggle('collapsed');
   $('#stage').classList.toggle('has-yt', !c);
@@ -1198,7 +1617,7 @@ $('#ytToggle').addEventListener('click', function () {
 });
 
 /* ---------- controles ---------- */
-document.querySelectorAll('.tool').forEach(function (b) {
+document.querySelectorAll('.tool[data-layer]').forEach(function (b) {
   b.addEventListener('click', function () { setLayer(b.getAttribute('data-layer'), true); });
 });
 $('#year').addEventListener('input', function (e) { setYear(+e.target.value, true); });
@@ -1206,9 +1625,9 @@ $('#play').addEventListener('click', function () { setPlaying(!S.playing); });
 $('#speed').addEventListener('input', function () { if (S.playing) setPlaying(true); });
 $('#latest').addEventListener('click', function () { setPlaying(false); setYear(tlRange()[1], true); });
 $('#zoom').addEventListener('input', function (e) { stopAuto(); setZoom(+e.target.value); });
-$('#zIn').addEventListener('click', function () { setZoom(zoomK * 1.25); });
-$('#zOut').addEventListener('click', function () { setZoom(zoomK / 1.25); });
-$('#aClose').addEventListener('click', function () { S.sel = null; S.zone = null; $('#analysis').hidden = true; renderZoneList(); setupTimeline(); renderEvents(); renderSteps(); requestDraw(); });
+$('#zIn').addEventListener('click', function () { if (S.flat && SAT.map) satSetZoom(satGetZoom() + 1); else setZoom(zoomK * 1.25); });
+$('#zOut').addEventListener('click', function () { if (S.flat && SAT.map) satSetZoom(satGetZoom() - 1); else setZoom(zoomK / 1.25); });
+$('#aClose').addEventListener('click', function () { for (var h = 0; h < HOOKS.close.length; h++) if (HOOKS.close[h]()) return; S.sel = null; S.zone = null; $('#analysis').hidden = true; renderZoneList(); setupTimeline(); renderEvents(); renderSteps(); requestDraw(); });
 $('#collapse').addEventListener('click', function () {
   var p = $('#info'), c = p.classList.toggle('collapsed');
   this.setAttribute('aria-expanded', String(!c));
@@ -1245,46 +1664,85 @@ function splitLine(line, delim) {
   out.push(cur);
   return out.map(function (s) { return s.trim(); });
 }
+// Fechas aceptadas: 2010 · 2010-03 · 2010-03-15 · 2010/03/15 · 15/03/2010 · 15-03-2010 · 03/2010 · 2010-03-15T00:00
 function parseDate(s) {
-  var m = /^(\d{4})(?:[-\/](\d{1,2}))?(?:[-\/](\d{1,2}))?(?:[T ]|$)/.exec(s.replace(/"/g, '').trim());
-  if (!m) return null;
-  var y = +m[1];
+  s = String(s).replace(/"/g, '').trim();
+  var m = /^(\d{4})(?:[-\/.](\d{1,2}))?(?:[-\/.](\d{1,2}))?(?:[T ].*)?$/.exec(s), y, mo = null, d = 1;
+  if (m) { y = +m[1]; mo = m[2] ? +m[2] : null; d = m[3] ? +m[3] : 1; }
+  else if ((m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[T ].*)?$/.exec(s))) { d = +m[1]; mo = +m[2]; y = +m[3]; if (mo > 12 && d <= 12) { var t = d; d = mo; mo = t; } }
+  else if ((m = /^(\d{1,2})[-\/.](\d{4})$/.exec(s))) { mo = +m[1]; y = +m[2]; }
+  else return null;
   if (y < 1800 || y > 2200) return null;
-  var mo = m[2] ? +m[2] : null, d = m[3] ? +m[3] : 1;
   if (mo !== null && (mo < 1 || mo > 12)) return null;
-  return { t: mo === null ? y + 0.5 : y + (mo - 1) / 12 + (d - 1) / 365.25, mo: mo };
+  if (d < 1 || d > 31) return null;
+  return { t: mo === null ? y + 0.5 : y + (mo - 1) / 12 + (d - 1) / 365.25, mo: mo, y: y };
+}
+function parseNum(txt, delim) {
+  var t = String(txt).replace(/"/g, '').trim();
+  if (!t) return NaN;
+  if (delim === ';' || /^-?\d+,\d+$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');   // coma decimal (Excel en español)
+  return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t) ? parseFloat(t) : NaN;
 }
 function parseCSV(text) {
   var lines = text.replace(/^﻿/, '').replace(/\r/g, '').split('\n');
-  var info = { unit: '', title: '', fill: null, name: '' }, rows = [], header = null;
-  lines.forEach(function (raw) {
+  var info = { unit: '', title: '', fill: null, name: '' }, rows = [], header = null, bad = [], fills = 0, dataLike = 0;
+  lines.forEach(function (raw, ln) {
     var line = raw.trim();
-    if (!line) return;
+    if (!line || line[0] === '#') return;
     var delim = line.indexOf('\t') >= 0 ? '\t' : (line.indexOf(';') >= 0 && line.indexOf(',') < 0) ? ';' : (line.indexOf(';') >= 0 && /\d,\d/.test(line)) ? ';' : ',';
-    var parts = splitLine(line, delim), k = parts[0].toLowerCase();
-    if (/^unit/.test(k)) { info.unit = parts.slice(1).join(' ').trim(); return; }
-    if (/^fill value/.test(k)) { info.fill = parseFloat(parts[1]); return; }
-    if (/^title/.test(k)) { info.title = parts.slice(1).join(', ').trim(); return; }
+    var parts = splitLine(line, delim), k = parts[0].toLowerCase().replace(/"/g, '');
+    if (/^unit/.test(k)) { info.unit = parts.slice(1).join(' ').replace(/"/g, '').trim(); return; }
+    if (/^fill value/.test(k)) { info.fill = parseNum(parts[1], ','); return; }
+    if (/^title/.test(k)) { info.title = parts.slice(1).join(', ').replace(/"/g, '').trim(); return; }
     var d = parseDate(parts[0]);
-    if (d && parts.length >= 2) {
-      var v = parseFloat(String(parts[1]).replace(delim === ';' ? ',' : '\u0000', '.'));
-      if (!isFinite(v) || (info.fill !== null && Math.abs(v - info.fill) < 1e-6) || v <= -9000 || v >= 9.9e30) return;
+    if (d) {
+      dataLike++;
+      var v = parts.length >= 2 ? parseNum(parts[1], delim) : NaN;
+      if (!isFinite(v)) { bad.push(ln + 1); return; }
+      if ((info.fill !== null && Math.abs(v - info.fill) < 1e-6) || v <= -9000 || v >= 9.9e30) { fills++; return; }
       rows.push({ t: d.t, mo: d.mo, v: v });
     } else if (parts.length >= 2 && !rows.length) header = parts;
+    else if (rows.length) { dataLike++; bad.push(ln + 1); }
   });
-  if (header && header[1]) info.name = header[1].replace(/^mean_/, '').replace(/_/g, ' ');
+  if (header && header[1]) {
+    info.name = header[1].replace(/"/g, '').replace(/^mean_/, '').replace(/_/g, ' ');
+    var hm = /\(([^)]+)\)|\[([^\]]+)\]/.exec(header[1]); if (hm && !info.unit) info.unit = hm[1] || hm[2];
+  }
   rows.sort(function (a, b) { return a.t - b.t; });
-  return { info: info, rows: rows };
+  // fechas repetidas: se promedian
+  var dup = 0, merged = [];
+  rows.forEach(function (r) { var l = merged[merged.length - 1]; if (l && Math.abs(l.t - r.t) < 1e-9) { l.sum += r.v; l.n++; dup++; } else merged.push({ t: r.t, mo: r.mo, sum: r.v, n: 1 }); });
+  rows = merged.map(function (r) { return { t: r.t, mo: r.mo, v: r.sum / r.n }; });
+  return { info: info, rows: rows, bad: bad, fills: fills, dup: dup, dataLike: dataLike };
 }
 var upData = null;
+function upStatus(kind, text) {
+  var el = $('#upStatus'); if (!el) return;
+  el.className = 'upstatus ' + kind; el.innerHTML = text; el.hidden = !text;
+}
+function freqOf(rows) {
+  var st = d3.median(d3.pairs(rows, function (a, b) { return b.t - a.t; }));
+  return st < 0.01 ? 'diaria' : st < 0.1 ? 'mensual' : st < 0.4 ? 'estacional' : st < 1.6 ? 'anual' : 'irregular';
+}
+var MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function tLabel(r) { var y = Math.floor(r.t); return r.mo ? MESES_C[r.mo - 1] + ' ' + y : String(y); }
 function renderUpload() {
   var out = $('#upOut');
   if (!upData) return;
   var rows = upData.rows, info = upData.info;
-  if (rows.length < 6) { out.innerHTML = '<p class="err">No encontré suficientes datos (fecha, valor) en el archivo. Revisa que sea el CSV de una serie de tiempo de Giovanni.</p>'; $('#deseaRow').style.display = 'none'; return; }
-  var monthly = rows.every(function (r) { return r.mo !== null; }) && d3.median(d3.pairs(rows, function (a, b) { return b.t - a.t; })) < 0.1;
+  var skipped = upData.bad.length ? '<li>' + upData.bad.length + ' fila(s) no se pudieron leer (líneas ' + upData.bad.slice(0, 6).join(', ') + (upData.bad.length > 6 ? '…' : '') + ').</li>' : '';
+  if (upData.fills) skipped += '<li>' + upData.fills + ' valor(es) marcados como “sin dato” se ignoraron.</li>';
+  if (upData.dup) skipped += '<li>' + upData.dup + ' fecha(s) repetidas se promediaron.</li>';
+  if (rows.length < 6) {
+    $('#deseaRow').style.display = 'none';
+    upStatus('err', '❌ Error: datos insuficientes');
+    out.innerHTML = '<div class="uperr"><b>No hay suficientes datos para analizar.</b><p>Encontré <b>' + rows.length + '</b> fila(s) válidas con fecha y valor; se necesitan al menos 6.</p>' + (skipped ? '<ul>' + skipped + '</ul>' : '') +
+      '<p>El archivo debe tener dos columnas: <b>fecha</b> (por ejemplo 2010, 2010-03 o 15/03/2010) y <b>valor</b> (número). Puede venir de Giovanni de NASA o de Excel guardado como CSV.</p></div>';
+    return;
+  }
+  var freq = freqOf(rows), monthly = freq === 'mensual' && rows.every(function (r) { return r.mo !== null; });
   $('#deseaRow').style.display = monthly ? 'flex' : 'none';
-  var ys = rows.map(function (r) { return r.v; }), xs = rows.map(function (r) { return r.t; });
+  var ys = rows.map(function (r) { return r.v; }), xs = rows.map(function (r) { return r.mo === null ? Math.floor(r.t) : r.t; });   // datos anuales: el año exacto
   var desea = monthly && $('#desea').checked;
   if (desea) {
     var sum = d3.range(12).map(function () { return 0; }), cnt = sum.slice();
@@ -1294,22 +1752,52 @@ function renderUpload() {
   }
   var res = analyze(xs, ys);
   var span = Math.floor(xs[0]) + '–' + Math.floor(xs[xs.length - 1]);
-  var unit = info.unit || 'unidades';
+  var unit = info.unit || '';
   var mag = d3.max(ys, Math.abs) || 1, dec = mag >= 100 ? 1 : mag >= 1 ? 2 : 4;
+  var iMax = d3.maxIndex(rows, function (r) { return r.v; }), iMin = d3.minIndex(rows, function (r) { return r.v; });
+  var u = unit ? ' ' + esc(unit) : '';
   out.innerHTML =
-    '<div class="kpi"><div class="k">Variable</div><div class="v">' + esc(info.name || 'Serie cargada') + '</div><div class="src">' + esc(info.title || '') + '</div><div class="src">' + rows.length + ' datos · ' + span + (monthly ? ' · mensual' : '') + ' · ' + esc(unit) + '</div></div>' +
-    '<div class="chart" style="margin:10px 0">' + chartSVG(xs, ys, res, { aria: 'Serie de tiempo cargada' }) + '</div>' +
-    verdictHTML(res, { per: span, dec: dec, unit: unit, subject: 'La variable' });
+    '<div class="upsum"><div class="k">Resumen de tus datos</div><b>' + esc(info.name || 'Serie cargada') + '</b>' + (info.title ? '<div class="src">' + esc(info.title) + '</div>' : '') +
+    '<div class="upgrid"><span>Datos válidos</span><b>' + rows.length + '</b><span>Periodo</span><b>' + tLabel(rows[0]) + ' – ' + tLabel(rows[rows.length - 1]) + '</b><span>Frecuencia</span><b>' + freq + '</b><span>Unidad</span><b>' + (unit ? esc(unit) : 'no indicada') + '</b>' +
+    '<span>Promedio</span><b>' + fmt(d3.mean(rows, function (r) { return r.v; }), dec) + u + '</b><span>Máximo</span><b>' + fmt(rows[iMax].v, dec) + u + ' (' + tLabel(rows[iMax]) + ')</b><span>Mínimo</span><b>' + fmt(rows[iMin].v, dec) + u + ' (' + tLabel(rows[iMin]) + ')</b></div>' +
+    (skipped ? '<ul class="upwarn">' + skipped + '</ul>' : '') + '</div>' +
+    '<div class="chart" style="margin:10px 0">' + chartSVG(xs, ys, res, { aria: 'Serie de tiempo cargada', title: info.name || 'Tus datos', varName: info.name || 'Valor', unit: unit, freq: freq + (desea ? ' · sin el ciclo de las estaciones' : ''), name: info.name || 'Tus datos' }) + '</div>' +
+    verdictHTML(res, { per: span, dec: dec, unit: unit || 'unidades', subject: 'La variable', neutral: !/°\s*C|^K$|kelvin|celsius|deg/i.test(unit) });
+  upStatus('ok', '✅ Análisis finalizado · ' + rows.length + ' datos' + (upData.bad.length || upData.fills ? ' · ' + (upData.bad.length + upData.fills) + ' descartados' : ''));
   setStep(1); setStep(2);
 }
 function readFile(f) {
   if (!f) return;
+  upData = null; $('#upOut').innerHTML = ''; $('#deseaRow').style.display = 'none';
+  var ext = (/\.([a-z0-9]+)$/i.exec(f.name) || [])[1] || '';
+  ext = ext.toLowerCase();
+  var kb = f.size < 1024 ? f.size + ' B' : (f.size / 1024).toFixed(1).replace('.', ',') + ' KB';
+  if (['csv', 'txt', 'tsv'].indexOf(ext) < 0) {
+    upStatus('err', '❌ Formato no compatible');
+    $('#upOut').innerHTML = '<div class="uperr"><b>«' + esc(f.name) + '» no es un archivo de texto con datos.</b><p>Usa un archivo <b>.csv</b>, <b>.txt</b> o <b>.tsv</b>. Si tienes un Excel (.xlsx), ábrelo y elige <i>Guardar como → CSV</i>.</p></div>';
+    return;
+  }
+  if (f.size === 0) { upStatus('err', '❌ Archivo vacío'); $('#upOut').innerHTML = '<div class="uperr"><b>«' + esc(f.name) + '» está vacío</b> (0 bytes). Revisa que hayas guardado los datos antes de subirlo.</div>'; return; }
+  if (f.size > 20 * 1024 * 1024) { upStatus('err', '❌ Archivo demasiado grande'); $('#upOut').innerHTML = '<div class="uperr">El archivo pesa ' + kb + '. El máximo es 20 MB.</div>'; return; }
+  upStatus('busy', '📄 Archivo cargado: <b>' + esc(f.name) + '</b> (' + kb + ') · ⏳ Analizando…');
   var r = new FileReader();
-  r.onload = function () { upData = parseCSV(String(r.result)); renderUpload(); };
-  r.onerror = function () { $('#upOut').innerHTML = '<p class="err">No se pudo leer el archivo.</p>'; };
+  r.onload = function () {
+    var txt = String(r.result);
+    if (/\u0000/.test(txt.slice(0, 4000)) || (txt.slice(0, 4000).match(/�/g) || []).length > 20) {
+      upStatus('err', '❌ Formato no compatible');
+      $('#upOut').innerHTML = '<div class="uperr"><b>El contenido no es texto</b> aunque el nombre termine en .' + esc(ext) + '. Puede ser una imagen o un Excel renombrado. Guarda los datos como CSV.</div>';
+      return;
+    }
+    if (!txt.trim()) { upStatus('err', '❌ Archivo vacío'); $('#upOut').innerHTML = '<div class="uperr"><b>«' + esc(f.name) + '» no tiene datos</b> (solo espacios o líneas en blanco).</div>'; return; }
+    setTimeout(function () {
+      try { upData = parseCSV(txt); renderUpload(); }
+      catch (err) { upStatus('err', '❌ Error al analizar'); $('#upOut').innerHTML = '<div class="uperr">Ocurrió un error leyendo el archivo: ' + esc(err.message) + '</div>'; }
+    }, 30);
+  };
+  r.onerror = function () { upStatus('err', '❌ Error'); $('#upOut').innerHTML = '<div class="uperr">No se pudo leer el archivo.</div>'; };
   r.readAsText(f);
 }
-$('#file').addEventListener('change', function (e) { readFile(e.target.files[0]); });
+$('#file').addEventListener('change', function (e) { readFile(e.target.files[0]); e.target.value = ''; });   // permite volver a elegir el mismo archivo
 $('#desea').addEventListener('change', renderUpload);
 var drop = $('#drop');
 ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
@@ -1317,12 +1805,17 @@ var drop = $('#drop');
 drop.addEventListener('drop', function (e) { readFile(e.dataTransfer.files[0]); });
 
 /* ---------- carga ---------- */
-resize(); if (!S.reduceMotion) autoSpin(); else S.auto = false; renderSteps();
+resize(); renderSteps();
 if (initGL()) {
   Promise.all([loadTexture('data/earth.jpg', 0), loadTexture('data/water.jpg', 1), loadTexture('data/clouds.jpg', 2)])
     .then(function (t) { glTex.earth = t[0]; glTex.water = t[1]; glTex.clouds = t[2]; glReady = true; dataTexDirty = true; requestDraw(); })
     .catch(function () { glReady = false; });
+  loadTexture('data/topo.png', 5).then(function (t) { glTex.topo = t; requestDraw(); }).catch(function () {});   // relieve (NASA, vía three-globe)
 }
+$('#reliefBtn').addEventListener('click', function () {
+  S.relief = !S.relief; this.setAttribute('aria-pressed', String(S.relief));
+  legend(); requestDraw();
+});
 $('#cloudBtn').addEventListener('click', function () { S.clouds = !S.clouds; this.setAttribute('aria-pressed', String(S.clouds)); requestDraw(); });
 $('#dataBtn').addEventListener('click', function () { S.showData = !S.showData; this.setAttribute('aria-pressed', String(S.showData)); requestDraw(); });
 $('#spinBtn').addEventListener('click', function () { if (S.auto) stopAuto(); else startAuto(); });
@@ -1348,9 +1841,228 @@ Promise.all([fetch('data/sst.json').then(function (r) { return r.json(); }), fet
     colombia = res[1].colombia;
     $('#loading').remove();
     setLayer('sst', false);
+    setFocus('colombia');   // la app se enfoca solo en Colombia
     if (S.year === LAST_YEAR) fetchLive();
+    loadHist();
   })
   .catch(function (err) {
     $('#loading').textContent = 'No se pudieron cargar los datos: ' + err.message;
   });
+/* ---------- vista satelital con calles (Google Maps si hay llave; si no, Leaflet + Esri) ---------- */
+var SAT = { mode: null, map: null, base: null, labels: null, layer: 'esri', zone: null, errors: 0, ok: 0, marks: [], gInfo: null, modis: null, labelsOn: true, cfg: null };
+var SAT_PLACES = {
+  nevados: [['Toda la zona', null], ['Nevado del Ruiz', [4.892, -75.324, 13]], ['Nevado Santa Isabel', [4.818, -75.369, 13]], ['Nevado del Tolima', [4.659, -75.33, 13]], ['Manizales', [5.068, -75.517, 13]]],
+  sierra: [['Toda la zona', null], ['Picos nevados', [10.84, -73.69, 12]], ['Santa Marta', [11.24, -74.2, 13]]],
+  caribe: [['San Andrés y Providencia', 'bbox'], ['San Andrés', [12.55, -81.72, 13]], ['Providencia', [13.36, -81.37, 13]], ['Ciénaga Grande', 'bbox2']],
+  amazonia: [['Toda la zona', null], ['San José del Guaviare', [2.57, -72.64, 13]], ['Chiribiquete', [0.6, -72.6, 9]]],
+  chingaza: [['Toda la zona', null], ['Páramo de Chingaza', [4.63, -73.72, 12]], ['Bogotá', [4.65, -74.1, 12]], ['Páramo de Sumapaz', [3.9, -74.3, 11]]],
+  choco: [['Toda la zona', null], ['Quibdó y río Atrato', [5.69, -76.65, 13]], ['Costa Pacífica', [5.5, -77.3, 10]]]
+};
+function modisDate() { var y = clamp(Math.min(S.year, LAST_YEAR), 2001, LAST_YEAR); return y + '-01-15'; }
+function modisURL(z, x, y) { return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' + modisDate() + '/GoogleMapsCompatible_Level9/' + z + '/' + y + '/' + x + '.jpg'; }
+function satConfig() {
+  if (SAT.cfg) return Promise.resolve(SAT.cfg);
+  var ctl = window.AbortController ? new AbortController() : null;
+  if (ctl) setTimeout(function () { ctl.abort(); }, 3000);
+  return fetch(API_BASE + '/api/config', ctl ? { signal: ctl.signal } : {}).then(function (r) { return r.ok ? r.json() : {}; })
+    .catch(function () { return {}; }).then(function (c) { SAT.cfg = c || {}; return SAT.cfg; });
+}
+function loadGoogle(key) {
+  if (window.google && google.maps) return Promise.resolve();
+  return new Promise(function (ok, bad) {
+    window.__gmReady = ok;
+    var sc = document.createElement('script');
+    sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&language=es&region=CO&callback=__gmReady';
+    sc.async = true; sc.onerror = bad; document.head.appendChild(sc);
+    setTimeout(function () { bad(new Error('timeout')); }, 9000);
+  });
+}
+function satNote(html) { var n = $('#satNote'); n.hidden = !html; if (html) n.innerHTML = html; }
+/* --- Leaflet (respaldo sin llave) --- */
+function lfWatch(layer) {
+  layer.on('tileload', function () { SAT.ok++; satNote(''); });
+  layer.on('tileerror', function () {
+    SAT.errors++;
+    if (SAT.errors > 6 && SAT.ok === 0) satNote('<b>Esta vista no puede cargar imágenes satelitales.</b><br>La vista previa de Claude bloquea las imágenes de otros sitios. Abre la app en tu computador (<b>localhost:8080</b>) o en su enlace de Render y aquí verás el satélite con calles.');
+  });
+  return layer;
+}
+function lfInit(center, zoom) {
+  SAT.mode = 'leaflet';
+  SAT.map = L.map('flatMap', { zoomControl: false, worldCopyJump: true, minZoom: 3, zoomSnap: 0.25, center: center, zoom: zoom });
+  SAT.map.on('zoomend', satZoomed);
+  var ref = 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/';
+  SAT.labels = L.layerGroup([
+    lfWatch(L.tileLayer(ref + 'World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'overlayPane' })),
+    lfWatch(L.tileLayer(ref + 'World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'overlayPane' }))
+  ]).addTo(SAT.map);
+  L.control.scale({ imperial: false }).addTo(SAT.map);
+}
+/* --- Google Maps --- */
+function gInit(center, zoom) {
+  SAT.mode = 'google';
+  SAT.map = new google.maps.Map($('#flatMap'), {
+    center: { lat: center[0], lng: center[1] }, zoom: Math.round(zoom), mapTypeId: 'hybrid', gestureHandling: 'greedy', isFractionalZoomEnabled: true,
+    mapTypeControl: true, mapTypeControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
+    streetViewControl: true, streetViewControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
+    zoomControl: false, fullscreenControl: false, rotateControl: true, scaleControl: true
+  });
+  SAT.map.addListener('zoom_changed', satZoomed);
+  SAT.gInfo = new google.maps.InfoWindow();
+  SAT.modis = new google.maps.ImageMapType({ getTileUrl: function (c, z) { return z > 9 ? null : modisURL(z, c.x, c.y); }, tileSize: new google.maps.Size(256, 256), maxZoom: 9, name: 'NASA MODIS' });
+}
+function satSetBase(kind) {
+  SAT.layer = kind;
+  document.querySelectorAll('[data-sl]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-sl') === kind)); });
+  if (SAT.mode === 'google') {
+    SAT.map.overlayMapTypes.clear();
+    if (kind === 'modis') {
+      SAT.modis = new google.maps.ImageMapType({ getTileUrl: function (c, z) { return z > 9 ? null : modisURL(z, c.x, c.y); }, tileSize: new google.maps.Size(256, 256), maxZoom: 9, name: 'NASA MODIS' });
+      SAT.map.overlayMapTypes.push(SAT.modis);
+      if (SAT.map.getZoom() > 9) SAT.map.setZoom(9);
+      SAT.map.setOptions({ maxZoom: 9 });
+    } else SAT.map.setOptions({ maxZoom: null });
+    return;
+  }
+  if (SAT.base) SAT.map.removeLayer(SAT.base);
+  SAT.base = kind === 'modis'
+    ? lfWatch(L.tileLayer(modisURL('{z}', '{x}', '{y}').replace('%7Bz%7D', '{z}'), { maxNativeZoom: 9, maxZoom: 12, attribution: 'NASA EOSDIS GIBS · MODIS Terra, ' + modisDate() }))
+    : lfWatch(L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18, maxZoom: 19, attribution: 'Imágenes © Esri, Maxar, Earthstar Geographics' }));
+  SAT.base.addTo(SAT.map); SAT.base.bringToBack();
+  if (kind === 'modis' && SAT.map.getZoom() > 11) SAT.map.setZoom(10);
+}
+function satView(lat, lon, zoom) {
+  if (SAT.layer === 'modis') zoom = Math.min(zoom, 9);
+  if (SAT.mode === 'google') { SAT.map.panTo({ lat: lat, lng: lon }); SAT.map.setZoom(zoom); }
+  else SAT.map.flyTo([lat, lon], zoom, { duration: 1.4 });
+}
+function satBounds(b) {
+  if (SAT.mode === 'google') SAT.map.fitBounds({ south: b[1], west: b[0], north: b[3], east: b[2] }, 20);
+  else SAT.map.flyToBounds([[b[1], b[0]], [b[3], b[2]]], { duration: 1.2, padding: [20, 20] });
+}
+function satGo(z, place) {
+  var t = place[1];
+  if (t === null || t === 'bbox' || t === 'bbox2') satBounds(t === 'bbox2' ? z.bbox2 : z.bbox);
+  else satView(t[0], t[1], t[2]);
+}
+function satPopup(id, sea, name) {
+  var y = Math.min(S.year, LAST_YEAR - 1), t = yearTemp(id, sea, y), a = yearAir(id, sea, Math.min(S.year, LAST_YEAR)), w = warming(id, sea, y);
+  return '<div class="sat-pop" style="min-width:190px"><b>' + esc(name) + '</b>' +
+    '<div class="r"><span>Temperatura ' + y + '</span><b>' + (t ? fmt(t.v, 1) + ' °C' : '—') + '</b></div>' +
+    (w ? '<div class="r"><span>Frente a los años 80</span><b style="color:#e8590c">' + sfmt(w.d, 2) + ' °C</b></div>' : '') +
+    '<div class="r"><span>PM2.5</span><b>' + (a ? fmt(a.v, 1) + ' µg/m³' : '—') + '</b></div></div>';
+}
+function satClearMarks() {
+  SAT.marks.forEach(function (m) { if (SAT.mode === 'google') m.setMap(null); else SAT.map.removeLayer(m); });
+  SAT.marks = [];
+}
+function satDrawZone(z) {
+  satClearMarks();
+  [z.bbox, z.bbox2].forEach(function (b) {
+    if (!b) return;
+    SAT.marks.push(SAT.mode === 'google'
+      ? new google.maps.Rectangle({ map: SAT.map, bounds: { south: b[1], west: b[0], north: b[3], east: b[2] }, strokeColor: '#fbbf24', strokeWeight: 2, fillOpacity: 0, clickable: false })
+      : L.rectangle([[b[1], b[0]], [b[3], b[2]]], { color: '#fbbf24', weight: 2, dashArray: '6 4', fill: false, interactive: false }).addTo(SAT.map));
+  });
+  var pts = z.id === 'caribe' ? [['sanandres', 12.58, -81.70, 'San Andrés'], ['caribe', 10.85, -74.45, 'Ciénaga Grande de Santa Marta']] : [[null, z.ll[1], z.ll[0], z.short]];
+  if (z.id !== 'caribe') { var hp = histPoint(z.id); if (hp) pts = [[null, hp.lat, hp.lon, hp.nombre]]; }
+  pts.forEach(function (p) {
+    var html = satPopup(z.id, p[0], p[3]);
+    if (SAT.mode === 'google') {
+      var mk = new google.maps.Marker({ map: SAT.map, position: { lat: p[1], lng: p[2] }, title: p[3],
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#fbbf24', fillOpacity: 1, strokeColor: '#1a1300', strokeWeight: 2 } });
+      mk.addListener('click', function () { SAT.gInfo.setContent('<div style="color:#0b1d2c">' + html + '</div>'); SAT.gInfo.open({ map: SAT.map, anchor: mk }); });
+      SAT.marks.push(mk);
+    } else SAT.marks.push(L.circleMarker([p[1], p[2]], { radius: 9, color: '#1a1300', weight: 2, fillColor: '#fbbf24', fillOpacity: 1 }).bindPopup(html).addTo(SAT.map));
+  });
+}
+function satEnsure(center, zoom) {
+  if (SAT.map) {
+    if (SAT.mode === 'leaflet') setTimeout(function () { SAT.map.invalidateSize(); }, 50);
+    return Promise.resolve();
+  }
+  return satConfig().then(function (c) {
+    if (c.mapsKey) return loadGoogle(c.mapsKey).then(function () { gInit(center, zoom); }).catch(function () { lfInit(center, zoom); });
+    lfInit(center, zoom);
+  }).then(function () { satSetBase(SAT.layer); });
+}
+/* conversión entre el acercamiento del globo (zoomK) y el nivel de zoom del mapa web (Mercator) */
+function kToZ(k) { var R = Math.min(W, H) * 0.41 * k; return Math.log2(2 * Math.PI * R / 256); }
+function zToK(z) { return 256 * Math.pow(2, z) / (2 * Math.PI) / (Math.min(W, H) * 0.41); }
+function satGetZoom() { return SAT.map.getZoom(); }
+function satSetZoom(z) { if (SAT.mode === 'google') SAT.map.setZoom(z); else SAT.map.setZoom(z); }
+function satCenter() { var c = SAT.map.getCenter(); return SAT.mode === 'google' ? [c.lat(), c.lng()] : [c.lat, c.lng]; }
+function satZoomed() {
+  if (!S.flat || SAT._busy) return;
+  var z = satGetZoom(), k = zToK(z);
+  if (k < FLAT_K - 0.3) { exitFlat(k); return; }
+  $('#zoom').value = Math.min(14, k);
+}
+// Pasa del globo al mapa satelital con calles (de una zona, o en el punto `at` = [lat, lon])
+function enterFlat(id, at, zoom) {
+  if (!window.L && !(window.google && google.maps)) return;
+  var z = id ? zoneById(id) : null;
+  S.flat = true; stopAuto();
+  $('#stage').classList.add('flat');
+  $('#flatMap').hidden = false; $('#flatBar').hidden = false;
+  var center = at || [z.ll[1], z.ll[0]];
+  zoom = zoom || kToZ(FLAT_K + 1.5);
+  SAT._busy = true;
+  satEnsure(center, zoom).then(function () {
+    if (SAT.mode === 'leaflet') SAT.map.invalidateSize();
+    var places = z ? (SAT_PLACES[id] || [['Toda la zona', null]]) : ZONES.map(function (zz) { return [zz.n + '. ' + zz.short, null, zz.id]; });
+    $('#satPlaces').innerHTML = places.map(function (p, i) { return '<button data-sp="' + i + '">' + esc(p[0]) + '</button>'; }).join('');
+    $('#satPlaces').querySelectorAll('[data-sp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        $('#satPlaces').querySelectorAll('[data-sp]').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+        var p = places[+b.getAttribute('data-sp')];
+        SAT._busy = true;
+        if (z) satGo(z, p); else { var zz = zoneById(p[2]); satDrawZone(zz); satGo(zz, ['', zz.ll2 ? 'bbox' : null]); }
+        setTimeout(function () { SAT._busy = false; }, 1600);
+      });
+    });
+    if (z) satDrawZone(z); else if (S.zone) satDrawZone(zoneById(S.zone)); else satClearMarks();
+    if (z && !at) satGo(z, places[0]); else satView(center[0], center[1], zoom);
+    setTimeout(function () { SAT._busy = false; }, 1600);
+  });
+}
+// Vuelve al globo en el mismo punto
+function exitFlat(k) {
+  if (!S.flat) return;
+  var c = SAT.map ? satCenter() : [-rot[1], -rot[0]];
+  S.flat = false;
+  $('#stage').classList.remove('flat');
+  $('#flatMap').hidden = true; $('#flatBar').hidden = true; satNote('');
+  rot = [-c[1], -c[0]];
+  zoomK = clamp(k || FLAT_K - 1, 0.8, FLAT_K - 0.5); $('#zoom').value = zoomK; requestDraw();
+}
+function openSat(id) { enterFlat(id); }
+document.querySelectorAll('[data-sl]').forEach(function (b) { b.addEventListener('click', function () { if (SAT.map) satSetBase(b.getAttribute('data-sl')); }); });
+$('#satLabels').addEventListener('click', function () {
+  if (!SAT.map) return;
+  SAT.labelsOn = !SAT.labelsOn; this.setAttribute('aria-pressed', String(SAT.labelsOn));
+  if (SAT.mode === 'google') SAT.map.setMapTypeId(SAT.labelsOn ? 'hybrid' : 'satellite');
+  else if (SAT.labelsOn) SAT.labels.addTo(SAT.map); else SAT.map.removeLayer(SAT.labels);
+});
+$('#satClose').addEventListener('click', function () { exitFlat(FLAT_K - 1.5); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.flat) exitFlat(FLAT_K - 1.5); });
+
+/* ---------- interfaz para los módulos ---------- */
+window.DT = {
+  S: S, HOOKS: HOOKS, LAYERS: LAYERS, LINKS: LINKS, scales: scales, EVENTS: EVENTS, LAST_YEAR: LAST_YEAR,
+  get D() { return D; }, get Y0() { return Y0; }, get NY() { return NY; }, get cells() { return cells; }, get centers() { return centers; },
+  get gistemp() { return gistemp; }, get colombia() { return colombia; }, get HIST() { return HIST; }, get zoomK() { return zoomK; }, get rot() { return rot; },
+  get W() { return W; }, get H() { return H; }, get trendP() { return trendP; },
+  valAt: valAt, anomAt: anomAt, hasYear: hasYear, cellAt: cellAt, cellValue: cellValue, mapYear: mapYear, oceanName: oceanName, coordText: coordText,
+  analyze: analyze, mannKendall: mannKendall, chartSVG: chartSVG, verdictHTML: verdictHTML, fmt: fmt, sfmt: sfmt, pfmt: pfmt, esc: esc, clamp: clamp,
+  catOf: catOf, catOfAnom: catOfAnom, badge: badge, AIR_CATS: AIR_CATS, TA_CATS: TA_CATS,
+  refresh: refresh, recolor: recolor, legend: legend, requestDraw: requestDraw, renderAnalysis: renderAnalysis, setLayer: setLayer, setYear: setYear,
+  setFocus: setFocus, flyTo: flyTo, setupTimeline: setupTimeline, renderInfo: renderInfo, renderTitles: renderTitles, showHover: showHover, stopAuto: stopAuto,
+  project: function (ll) { return proj(ll); }, visible: function (ll) { return d3.geoDistance(ll, [-rot[0], -rot[1]]) < Math.PI / 2 - 0.02; },
+  markerAt: markerAt, colFar: colFar, geoAt: geoAt, landAt: landAt, zoneSeries: zoneSeries, PT_NAME: PT_NAME, SSTZ: SSTZ,
+  zoneById: zoneById, ZONES: ZONES, yearTemp: yearTemp, yearAir: yearAir, histPoint: histPoint, warming: warming, selectZone: selectZone,
+  apiBase: function () { return API_BASE; }, live: function () { return LIVE; }, fillPeriod: fillPeriod,
+  setZoomK: function (z) { setZoom(z); }, cancelFly: cancelFly, closeZone: function () { S.zone = null; renderZoneList(); setupTimeline(); renderAnalysis(); }
+};
+document.dispatchEvent(new Event('dt-ready'));
 })();

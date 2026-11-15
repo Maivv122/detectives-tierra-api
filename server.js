@@ -8,21 +8,24 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Lee las llaves de un archivo .env (si existe) para no tener que escribirlas en cada npm start.
+try {
+  const envTxt = (await import('node:fs')).readFileSync(path.join(__dirname, '.env'), 'utf8');
+  for (const line of envTxt.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch { /* sin .env: se usan las variables del sistema */ }
+
 const GOOGLE_KEY = process.env.GOOGLE_WEATHER_API_KEY || '';
 const CACHE_MIN = Number(process.env.CACHE_MINUTES || 30);       // 30 min: cuida la cuota gratuita
 const FALLBACK = (process.env.FALLBACK_OPEN_METEO || 'true') !== 'false';
 const PORT = Number(process.env.PORT || 8080);
 
-// Puntos que representan cada zona de Colombia en la app.
-export const PUNTOS = [
-  { zona: 'nevados', nombre: 'Nevado del Ruiz', lat: 4.892, lon: -75.324 },
-  { zona: 'sierra', nombre: 'Sierra Nevada de Santa Marta', lat: 10.84, lon: -73.69 },
-  { zona: 'caribe', nombre: 'San Andrés', lat: 12.58, lon: -81.70 },
-  { zona: 'caribe', nombre: 'Ciénaga Grande de Santa Marta', lat: 10.85, lon: -74.45 },
-  { zona: 'amazonia', nombre: 'San José del Guaviare', lat: 2.57, lon: -72.64 },
-  { zona: 'chingaza', nombre: 'Páramo de Chingaza', lat: 4.63, lon: -73.72 },
-  { zona: 'choco', nombre: 'Quibdó', lat: 5.69, lon: -76.65 }
-];
+import { PUNTOS } from './puntos.mjs';
+import { buildHistorico } from './historico.mjs';
+import fs from 'node:fs/promises';
+export { PUNTOS };
 
 /* ---------- caché en memoria ---------- */
 const cache = new Map();
@@ -172,6 +175,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Llave de Google Maps para el mapa con calles. Va al navegador, así que debe ser una llave
+// SEPARADA y restringida por sitio web (HTTP referrer) en Google Cloud.
+app.get('/api/config', (req, res) => {
+  res.json({ mapsKey: process.env.GOOGLE_MAPS_API_KEY || '' });
+});
+
 app.get('/api/salud', (req, res) => {
   res.json({ ok: true, google: Boolean(GOOGLE_KEY), respaldo_open_meteo: FALLBACK, cache_minutos: CACHE_MIN });
 });
@@ -208,6 +217,62 @@ app.get('/api/zonas', async (req, res) => {
     return { ...p, ...t, aire: a };
   }));
   res.json({ actualizado: new Date().toISOString(), puntos: out });
+});
+
+/* ---------- aire ahora en ciudades del mundo (una sola consulta a Open-Meteo) ---------- */
+const CIUDADES = [
+  ['Madrid', 40.42, -3.7], ['Sevilla', 37.39, -5.98], ['Lisboa', 38.72, -9.14], ['París', 48.86, 2.35], ['Londres', 51.51, -0.13],
+  ['Roma', 41.9, 12.5], ['Atenas', 37.98, 23.73], ['Berlín', 52.52, 13.4], ['Moscú', 55.76, 37.62], ['Reikiavik', 64.15, -21.94],
+  ['El Cairo', 30.04, 31.24], ['Lagos', 6.52, 3.38], ['Nairobi', -1.29, 36.82], ['Johannesburgo', -26.2, 28.05], ['Riad', 24.71, 46.68],
+  ['Dubái', 25.2, 55.27], ['Delhi', 28.61, 77.21], ['Bombay', 19.08, 72.88], ['Pekín', 39.9, 116.4], ['Tokio', 35.68, 139.69],
+  ['Bangkok', 13.76, 100.5], ['Yakarta', -6.21, 106.85], ['Sídney', -33.87, 151.21], ['Perth', -31.95, 115.86], ['Auckland', -36.85, 174.76],
+  ['Anchorage', 61.22, -149.9], ['Los Ángeles', 34.05, -118.24], ['Phoenix', 33.45, -112.07], ['Toronto', 43.65, -79.38], ['Nueva York', 40.71, -74.01],
+  ['Miami', 25.76, -80.19], ['Ciudad de México', 19.43, -99.13], ['Bogotá', 4.71, -74.07], ['Barranquilla', 10.96, -74.8], ['Lima', -12.05, -77.04],
+  ['Manaos', -3.12, -60.02], ['São Paulo', -23.55, -46.63], ['Buenos Aires', -34.6, -58.38], ['Santiago', -33.45, -70.67], ['Ushuaia', -54.8, -68.3]
+];
+app.get('/api/ciudades', async (req, res) => {
+  const hit = cacheGet('ciudades');
+  if (hit) return res.json({ ...hit, en_cache: true });
+  try {
+    const u = new URL('https://api.open-meteo.com/v1/forecast');
+    u.searchParams.set('latitude', CIUDADES.map((c) => c[1]).join(','));
+    u.searchParams.set('longitude', CIUDADES.map((c) => c[2]).join(','));
+    u.searchParams.set('current', 'temperature_2m');
+    u.searchParams.set('timezone', 'UTC');
+    const r = await fetch(u, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
+    const arr = [].concat(await r.json());
+    const v = {
+      actualizado: new Date().toISOString(),
+      fuente: 'Open-Meteo · temperatura del aire a 2 m, ahora',
+      ciudades: CIUDADES.map((c, i) => ({ n: c[0], lat: c[1], lon: c[2], t: arr[i]?.current?.temperature_2m ?? null, hora: arr[i]?.current?.time ?? null }))
+    };
+    cacheSet('ciudades', v);
+    res.json({ ...v, en_cache: false });
+  } catch (e) {
+    res.status(502).json({ error: 'No se pudo consultar la temperatura de las ciudades', detalle: e.message });
+  }
+});
+
+/* ---------- historia anual por zona ---------- */
+const HIST_FILE = path.join(__dirname, 'public', 'data', 'historico.json');
+let histMem = null, histBuilding = null;
+app.get('/api/historico', async (req, res) => {
+  try {
+    if (histMem && Date.now() - histMem.t < 24 * 3600 * 1000) return res.json(histMem.v);
+    try {
+      const v = JSON.parse(await fs.readFile(HIST_FILE, 'utf8'));
+      histMem = { t: Date.now(), v };
+      return res.json(v);
+    } catch { /* no hay archivo: se construye */ }
+    histBuilding = histBuilding || buildHistorico().finally(() => { histBuilding = null; });
+    const v = await histBuilding;
+    histMem = { t: Date.now(), v };
+    fs.writeFile(HIST_FILE, JSON.stringify(v)).catch(() => {});
+    res.json(v);
+  } catch (e) {
+    res.status(502).json({ error: 'No se pudo construir la historia por zona', detalle: e.message });
+  }
 });
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));

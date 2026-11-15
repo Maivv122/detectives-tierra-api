@@ -1,5 +1,9 @@
 /* Zonas de Colombia: datos y fuentes verificadas. */
 var SRC = {
+  gradiente: ['Britannica · Clima de Colombia (0,6 °C por cada 100 m)', 'https://www.britannica.com/place/Colombia/Climate'],
+  paramoChingaza: ['U. del Rosario · Páramos de Chingaza y cambio climático', 'https://research-hub.urosario.edu.co/display/bfe5d808-7701-4ec7-acea-1cc49b9507c3'],
+  iriParamo: ['IRI, Columbia University · Páramos y cambio climático', 'https://iri.columbia.edu/news/climate-change-threatens-a-fragile-ecosystem-in-the-andes'],
+  crw: ['NOAA Coral Reef Watch · umbral de blanqueamiento', 'https://coralreefwatch.noaa.gov/product/5km/tutorial/crw10a_dhw_product.php'],
   ideamPpt: ['IDEAM · Glaciares de Colombia (2025)', 'https://ipromolatinoamericano.condesan.org/wp-content/uploads/2025/11/PPT-Andres-Cruz_Glaciares-de-Colombia.pdf'],
   ideamTabla: ['IDEAM · Evolución del área glaciar', 'https://ideam.gov.co/file-download/download/public/8803'],
   radioNal24: ['Radio Nacional · IDEAM y El Niño (2026)', 'https://radionacional.co/actualidad/medio-ambiente/fenomeno-de-el-nino-aceleraria-derretimiento-de-glaciares-en-colombia'],

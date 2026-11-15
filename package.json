@@ -5,7 +5,10 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "historico": "node scripts/generar-historico.mjs",
+    "departamentos": "node scripts/generar-departamentos.mjs",
+    "datos": "node scripts/generar-historico.mjs && node scripts/generar-departamentos.mjs"
   },
   "engines": {
     "node": ">=18"
