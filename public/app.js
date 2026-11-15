@@ -831,15 +831,49 @@ function pinchInfo() {
   var r = canvas.getBoundingClientRect();
   return { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mid: [(p[0].x + p[1].x) / 2 - r.left, (p[0].y + p[1].y) / 2 - r.top] };
 }
+// iPhone/iPad (Safari): el navegador intenta agrandar TODA la página con dos dedos.
+// Se bloquea ese zoom de página y se usa su gesto (scale) para acercar solo el mapa.
+var IOS_GESTURE = 'ongesturestart' in window;
+function pinchStart(mid) { syncProj(); return { k0: zoomK, g: geoAt(mid) }; }
+function pinchTo(P, z, mid) {
+  if (z >= FLAT_K) { setZoom(z); return false; }   // pasa al mapa con calles
+  zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK;
+  if (P.g) {   // mantiene bajo los dedos el mismo lugar del mapa
+    syncProj();
+    var g1 = geoAt(mid);
+    if (g1) rot = [rot[0] + (g1[0] - P.g[0]), clamp(rot[1] + (g1[1] - P.g[1]), -85, 85)];
+  }
+  requestDraw();
+  return true;
+}
+var gest = null;
+document.addEventListener('gesturestart', function (e) {
+  e.preventDefault();
+  if (e.target !== canvas || S.flat) return;
+  cancelFly(); stopAuto(); drag = null;
+  var r = canvas.getBoundingClientRect();
+  gest = pinchStart([e.clientX - r.left, e.clientY - r.top]);
+}, { passive: false });
+document.addEventListener('gesturechange', function (e) {
+  e.preventDefault();
+  if (!gest) return;
+  var r = canvas.getBoundingClientRect();
+  if (!pinchTo(gest, gest.k0 * e.scale, [e.clientX - r.left, e.clientY - r.top])) gest = null;
+}, { passive: false });
+document.addEventListener('gestureend', function (e) { e.preventDefault(); gest = null; }, { passive: false });
+// sobre el mapa, ningún gesto de dos dedos debe mover o agrandar la página
+canvas.addEventListener('touchstart', function (e) { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
 function syncProj() { proj.scale(radius()).translate([W / 2, H / 2 + 8]).rotate(rot); }
 canvas.addEventListener('pointerdown', function (e) {
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   touches[e.pointerId] = { x: e.clientX, y: e.clientY };
   cancelFly(); stopAuto();
   if (nTouches() === 2) {            // empieza el pellizco: se cancela el arrastre y el toque
-    var pi = pinchInfo(); syncProj();
-    pinch = { d0: pi.d || 1, k0: zoomK, g: geoAt(pi.mid) };
     drag = null;
+    if (IOS_GESTURE) { pinch = { ios: true }; return; }   // en iPhone lo maneja gesturechange
+    var pi = pinchInfo(), P = pinchStart(pi.mid);
+    pinch = { d0: pi.d || 1, k0: P.k0, g: P.g };
     return;
   }
   if (nTouches() > 2) return;
@@ -848,16 +882,9 @@ canvas.addEventListener('pointerdown', function (e) {
 canvas.addEventListener('pointermove', function (e) {
   if (touches[e.pointerId]) touches[e.pointerId] = { x: e.clientX, y: e.clientY };
   if (pinch && nTouches() >= 2) {
-    var pi = pinchInfo(), z = pinch.k0 * pi.d / pinch.d0;
-    if (z >= FLAT_K) { pinch = null; touches = {}; setZoom(z); return; }   // pasa al mapa con calles
-    zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK;
-    // mantiene bajo los dedos el mismo lugar del mapa
-    if (pinch.g) {
-      syncProj();
-      var g1 = geoAt(pi.mid);
-      if (g1) rot = [rot[0] + (g1[0] - pinch.g[0]), clamp(rot[1] + (g1[1] - pinch.g[1]), -85, 85)];
-    }
-    requestDraw();
+    if (pinch.ios) return;
+    var pi = pinchInfo();
+    if (!pinchTo(pinch, pinch.k0 * pi.d / pinch.d0, pi.mid)) { pinch = null; touches = {}; }
     return;
   }
   if (drag) {
