@@ -822,12 +822,44 @@ function geoAt(pt) {
   if (d3.geoDistance(g, [-rot[0], -rot[1]]) > Math.PI / 2 - 0.01) return null;
   return g;
 }
+/* toque: un dedo arrastra el globo; dos dedos (pellizco) acercan o alejan hacia el punto entre los dedos;
+*/
+var touches = {}, pinch = null;
+function nTouches() { return Object.keys(touches).length; }
+function pinchInfo() {
+  var p = Object.keys(touches).map(function (k) { return touches[k]; });
+  var r = canvas.getBoundingClientRect();
+  return { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mid: [(p[0].x + p[1].x) / 2 - r.left, (p[0].y + p[1].y) / 2 - r.top] };
+}
+function syncProj() { proj.scale(radius()).translate([W / 2, H / 2 + 8]).rotate(rot); }
 canvas.addEventListener('pointerdown', function (e) {
-  canvas.setPointerCapture(e.pointerId);
-  cancelFly(); drag = { x: e.clientX, y: e.clientY, rot: rot.slice(), moved: false };
-  stopAuto();
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+  cancelFly(); stopAuto();
+  if (nTouches() === 2) {            // empieza el pellizco: se cancela el arrastre y el toque
+    var pi = pinchInfo(); syncProj();
+    pinch = { d0: pi.d || 1, k0: zoomK, g: geoAt(pi.mid) };
+    drag = null;
+    return;
+  }
+  if (nTouches() > 2) return;
+  drag = { x: e.clientX, y: e.clientY, rot: rot.slice(), moved: false };
 });
 canvas.addEventListener('pointermove', function (e) {
+  if (touches[e.pointerId]) touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+  if (pinch && nTouches() >= 2) {
+    var pi = pinchInfo(), z = pinch.k0 * pi.d / pinch.d0;
+    if (z >= FLAT_K) { pinch = null; touches = {}; setZoom(z); return; }   // pasa al mapa con calles
+    zoomK = clamp(z, 0.8, 14); $('#zoom').value = zoomK;
+    // mantiene bajo los dedos el mismo lugar del mapa
+    if (pinch.g) {
+      syncProj();
+      var g1 = geoAt(pi.mid);
+      if (g1) rot = [rot[0] + (g1[0] - pinch.g[0]), clamp(rot[1] + (g1[1] - pinch.g[1]), -85, 85)];
+    }
+    requestDraw();
+    return;
+  }
   if (drag) {
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.hypot(dx, dy) > 4) drag.moved = true;
@@ -836,12 +868,25 @@ canvas.addEventListener('pointermove', function (e) {
     requestDraw();
     return;
   }
-  hover(evPos(e));
+  if (e.pointerType === 'mouse') hover(evPos(e));
 });
-canvas.addEventListener('pointerup', function (e) {
-  if (drag && !drag.moved) pick(evPos(e));
+function endPointer(e) {
+  var wasPinch = !!pinch;
+  delete touches[e.pointerId];
+  if (wasPinch) {
+    if (nTouches() < 2) pinch = null;
+    // si queda un dedo, sigue arrastrando desde donde está (sin saltos)
+    var rest = Object.keys(touches);
+    drag = rest.length === 1 ? { x: touches[rest[0]].x, y: touches[rest[0]].y, rot: rot.slice(), moved: true } : null;
+    return;
+  }
+  if (e.type === 'pointerup' && drag && !drag.moved) {
+    pick(evPos(e));
+  }
   drag = null;
-});
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('pointerleave', function () { showHover(null, ''); });
 canvas.addEventListener('wheel', function (e) {
   e.preventDefault(); stopAuto();
