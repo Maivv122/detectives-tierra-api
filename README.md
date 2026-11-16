@@ -1,159 +1,149 @@
-# 🌎 Earth Detectives · Detectives de la Tierra
+# Earth Detectives (Detectives de la Tierra)
 
-**How much has Colombia warmed — and where?** Earth Detectives is an interactive web platform that turns NASA and NOAA climate records into a map anyone can explore. Search for a department, travel through time, compare regions and discover how temperature has changed across Colombia, using only real, cited data.
+Web platform to explore how temperature has changed in Colombia using NASA and NOAA data. You can search for a department, move through the years, compare regions and upload your own data to look for trends.
 
-Built by our team for the **NASA Space Apps Challenge 2026**, for the challenge on trends in Earth science data.
+Project developed for the NASA Space Apps Challenge 2026, in the challenge about trends in Earth science data.
 
-🔗 **Live demo:** https://detectives-tierra-api.onrender.com
-🌐 Available in **English** and **Español** (button in the top bar)
+Live demo: https://detectives-tierra-api.onrender.com
 
----
+The platform is available in English and Spanish.
 
-## The problem
+## Motivation
 
-Climate data is public, but it is not easy to use. NASA and NOAA publish decades of measurements, yet most people — students, teachers, local decision makers — never see what those numbers mean for *their* region. Global averages feel distant, and the tools that handle the raw files are built for specialists.
+Climate data from NASA and NOAA is public, but working with it usually requires downloading large files and knowing how to process them. Most students, teachers and people outside research never get to see what that data says about their own region.
 
-## Our solution
-
-We built a map-first platform that answers simple questions with real data:
-
-- *Is my department warming? By how much?*
-- *Which regions changed the most since the 1980s?*
-- *How do two places compare?*
-- *Is the trend real or just natural variability?*
-
-Every answer comes with its source, and every statistic is explained in plain language. When a source does not cover a year or a region, the platform says so instead of filling the gap.
+We wanted a tool where anyone can open a map, pick a department of Colombia and get a clear answer: how much it has warmed, since when, and whether the change is statistically significant. Every value shown comes from a cited source. When a source does not cover a year or a region, the platform says so instead of estimating it.
 
 ## Features
 
-| Feature | What it does |
-|---|---|
-| 🌍 **3D globe + street map** | A satellite globe (NASA Blue Marble) that zooms all the way into a satellite map with streets and cities. Data layers stay visible at every zoom level. |
-| 🔎 **Department search** | Type any of Colombia's 33 departments (accents optional). The map flies there, highlights it and opens its profile. |
-| 🌡 **Sea and air layers** | Sea surface temperature around Colombia, air temperature by department, anomaly (vs. normal) and trend per decade. |
-| ⏱ **Timeline** | Move through the years or play them as an animation. Key climate events (El Niño, La Niña, records) are marked. |
-| 📍 **Department profile** | A one-line verdict ("It is warming: +1.1 °C since the 1980s"), four key cards and the full history chart. |
-| ⇄ **Compare** | *Between years:* the map colors each department by how much it warmed or cooled, with a ranking. *Between regions:* 2 to 4 regions side by side, with a summary box and a **main finding** computed from the data. |
-| 📈 **Interactive charts** | Exact values on hover, toggle series, last 30 / 10 years, drag to zoom into a period, lines or bars, min/max marked and the trend explained in words. |
-| 📂 **My data** | Upload a CSV (date, value), from NASA Giovanni or Excel. The platform validates it, summarizes it and tests for a trend, with clear messages for empty, invalid or incomplete files. |
-| 📱 **Mobile friendly** | Responsive layout and pinch-to-zoom toward your fingers on Android and iPhone. |
+- Globe with satellite imagery that switches to a street-level satellite map when you zoom in. The data layers stay visible at every zoom level.
+- Search for any of the 33 departments of Colombia (accents are optional). The map moves to the department, highlights it and opens its information.
+- Layers for sea surface temperature, air temperature by department, anomaly (difference from normal) and trend per decade.
+- Timeline to move through the years or play them as an animation, with climate events such as El Niño and La Niña marked.
+- Department view with a short summary, the current year's temperature, the difference from normal, the rate of change and the change since the 1980s, plus its full history chart.
+- Comparison between years, where each department is colored by how much it warmed or cooled, and a ranking.
+- Comparison between 2 to 4 regions, with the value of each one, the difference and a main finding calculated from the data.
+- Interactive charts with exact values on hover, series that can be hidden, period buttons (all, last 30 years, last 10 years), zoom by dragging over the chart and a switch between lines and bars.
+- Data upload: a CSV file with date and value columns (for example from NASA Giovanni or Excel). The platform validates the file, shows a summary and tests for a trend. Empty, incompatible or incomplete files get a specific message.
+- Responsive design with pinch to zoom on phones.
 
-### Some findings from the data
+## Results
 
-- Between 1981 and 2025, **32 of Colombia's 33 departments warmed**, by **+0.71 °C** on average (NASA POWER).
-- Norte de Santander and Vichada show the largest increases, above **+1.2 °C**.
-- La Guajira is about **4.3 °C warmer** than Antioquia on average, yet Antioquia is warming faster.
+Using the NASA POWER air temperature data by department:
+
+- Between 1981 and 2025, 32 of the 33 departments of Colombia got warmer, with an average increase of 0.71 °C.
+- Norte de Santander and Vichada show the largest increases, above 1.2 °C.
+- La Guajira is on average about 4.3 °C warmer than Antioquia, but Antioquia is warming faster.
 
 ## Data sources
 
 | Data | Source | Period |
 |---|---|---|
-| Sea surface temperature (4° cells) | NOAA ERSSTv5 | 1970–2021 |
-| Air temperature at 2 m, by department | NASA POWER (MERRA-2 reanalysis) | 1981–2025 |
-| Global temperature | NASA GISTEMP v4 | 1880–2025 |
-| Department boundaries | Natural Earth | — |
-| Satellite imagery | NASA Blue Marble · Esri World Imagery · NASA GIBS (MODIS) | — |
+| Sea surface temperature (4° cells) | NOAA ERSSTv5 | 1970 to 2021 |
+| Air temperature at 2 m by department | NASA POWER (MERRA-2) | 1981 to 2025 |
+| Global temperature | NASA GISTEMP v4 | 1880 to 2025 |
+| Department boundaries | Natural Earth | |
+| Satellite imagery | NASA Blue Marble, Esri World Imagery, NASA GIBS (MODIS) | |
 | Current temperature | Open-Meteo (Google Weather optional) | Live |
 
-Department values are the average of the MERRA-2 cells (≈ 55 × 70 km) whose center falls inside each department.
+The value of each department is the average of the MERRA-2 cells (about 55 x 70 km) whose center falls inside the department.
 
-## How the statistics work
+## Methods
 
-- **Anomaly:** the difference between a year and the reference average.
-- **Trend:** the slope of a linear regression, expressed per decade, with its 95 % confidence interval and Sen's slope.
-- **Significance:** a trend is reported as real only when **both** the regression t-test and the **Mann-Kendall** test give p < 0.05. Otherwise the platform says the change may be natural variability.
+- Anomaly: difference between the value of a year and the reference average.
+- Trend: slope of a linear regression, expressed per decade, with its 95 % confidence interval and the Sen slope.
+- Significance: a trend is considered clear only when both the regression t-test and the Mann-Kendall test give p < 0.05. If not, the platform reports that the change could be natural variability.
 
-The technical detail is always available, but folded, so the main message stays simple.
+The statistical details are available in each view but kept collapsed so the main result is easy to read.
 
-## Tech stack
+## Technologies
 
-- **Frontend:** HTML, CSS and vanilla JavaScript · d3.js (globe projection and charts) · WebGL2 (satellite Earth, clouds and relief) · Leaflet (street map)
-- **Backend:** Node.js 18+ with Express — serves the app and a small API for live temperature, with an in-memory cache
-- **Hosting:** Render (free web service), code on GitHub
-- **Languages:** English and Spanish, with a built-in switch
+- Frontend: HTML, CSS and JavaScript, d3.js for the globe projection and the charts, WebGL2 for the satellite globe, Leaflet for the street map.
+- Backend: Node.js with Express. It serves the application and a small API for the current temperature, with an in-memory cache.
+- Hosting: Render. Source code on GitHub.
 
-## Run it locally
+## Running locally
 
-Requirements: [Node.js](https://nodejs.org) 18 or newer and [Git](https://git-scm.com).
+Requirements: Node.js 18 or newer and Git.
 
 ```bash
 git clone https://github.com/Maivv122/detectives-tierra-api.git
 cd detectives-tierra-api
 npm install
-npm start          # open http://localhost:8080
+npm start
 ```
 
-The data files are already included. To regenerate them from NASA (takes a few minutes):
+Then open http://localhost:8080.
+
+The data files are already included in the repository. To download them again from NASA (it takes a few minutes):
 
 ```bash
 npm run datos
 ```
 
-No API keys are needed. Optional keys go in a `.env` file (copy `.env.example`):
+The project works without API keys. Optional settings can be added in a `.env` file, using `.env.example` as a template:
 
-| Variable | Purpose |
+| Variable | Use |
 |---|---|
-| `GOOGLE_WEATHER_API_KEY` | Live temperature from Google Weather (otherwise Open-Meteo is used) |
-| `GOOGLE_MAPS_API_KEY` | Google Maps street view (otherwise Esri imagery is used). Restrict it by website. |
-| `CACHE_MINUTES` | Minutes a live query is reused (default 30) |
-| `PORT` | Server port (default 8080) |
+| `GOOGLE_WEATHER_API_KEY` | Current temperature from Google Weather. Without it, Open-Meteo is used. |
+| `GOOGLE_MAPS_API_KEY` | Google Maps for the street map. Without it, Esri imagery is used. It should be restricted by website. |
+| `CACHE_MINUTES` | Minutes a current temperature query is reused (default 30). |
+| `PORT` | Server port (default 8080). |
 
-The `.env` file is never uploaded to GitHub.
+The `.env` file is not uploaded to the repository.
 
-## Deploy
+## Deployment
 
-On [Render](https://render.com): **New → Web Service**, connect this repository and use:
+The application is deployed on Render as a Web Service:
 
 - Build command: `npm install`
 - Start command: `npm start`
 
-Each push to `main` can be published with **Manual Deploy → Deploy latest commit** (or automatically if Auto-Deploy is on). On the free plan the service sleeps after 15 minutes without visits and takes about a minute to wake up.
+New versions are published from Render with Manual Deploy, Deploy latest commit (or automatically if Auto-Deploy is enabled). On the free plan the service sleeps after 15 minutes without visits and takes around a minute to start again.
 
 ## Project structure
 
 ```
-├── server.js              # Express server and API
-├── scripts/               # Scripts that download NASA data (npm run datos)
-└── public/
-    ├── index.html
-    ├── app.js             # Globe, layers, timeline, statistics, file upload
-    ├── zones.js           # Study zones, sources and events
-    ├── data/              # Climate data and boundaries
-    └── js/
-        ├── i18n.js        # English / Spanish
-        ├── buscar.js      # Department search
-        ├── colombia.js    # Departments on the map and their profile
-        ├── comparar.js    # Compare between years and regions
-        ├── datos.js       # Regions and series
-        ├── graficas.js    # Interactive charts
-        └── plano.js       # Data over the street map
+server.js            Express server and API
+scripts/             Scripts that download the NASA data (npm run datos)
+public/
+  index.html
+  app.js             Globe, layers, timeline, statistics and data upload
+  zones.js           Study zones, sources and events
+  data/              Climate data and boundaries
+  js/
+    i18n.js          English and Spanish
+    buscar.js        Department search
+    colombia.js      Departments on the map and their information
+    comparar.js      Comparison between years and between regions
+    datos.js         Regions and data series
+    graficas.js      Interactive charts
+    plano.js         Data over the street map
 ```
 
-### API
+## API
 
 | Route | Returns |
 |---|---|
 | `GET /api/temperatura?lat=4.71&lon=-74.07` | Current conditions at a point |
 | `GET /api/zonas` | Current conditions at the study zones |
-| `GET /api/historico` | Annual mean per study zone |
+| `GET /api/historico` | Annual average for each study zone |
 | `GET /api/salud` | Server status |
 
 ## Team
 
 | Name | Role |
 |---|---|
-| _Name_ | _Role_ |
-| _Name_ | _Role_ |
-| _Name_ | _Role_ |
+| | |
+| | |
+| | |
 
 ## Acknowledgments
 
-Data from NASA (POWER, GISTEMP, GIBS, Blue Marble), NOAA (ERSSTv5), Natural Earth, Esri and Open-Meteo. Context for the study zones comes from IDEAM and the sources cited inside the platform.
-
----
+Data from NASA (POWER, GISTEMP, GIBS, Blue Marble), NOAA (ERSSTv5), Natural Earth, Esri and Open-Meteo. Information about the study zones comes from IDEAM and the sources cited in the platform.
 
 ## Español
 
-**Detectives de la Tierra** es una plataforma web interactiva que convierte los registros climáticos de NASA y NOAA en un mapa que cualquiera puede explorar. Permite buscar un departamento, viajar en el tiempo, comparar regiones y ver cómo ha cambiado la temperatura en Colombia, solo con datos reales y citados. La creamos en equipo para el **NASA Space Apps Challenge 2026**.
+Detectives de la Tierra es una plataforma web para explorar cómo ha cambiado la temperatura en Colombia con datos de NASA y NOAA. Permite buscar un departamento, recorrer los años, comparar regiones y subir datos propios para buscar tendencias. Fue desarrollada para el NASA Space Apps Challenge 2026.
 
-Para usarla en español, toca **🌐 Español** en la barra superior. Para correrla en tu computador: `npm install` y luego `npm start`, y abre http://localhost:8080.
+Para usarla en español se usa el botón de idioma en la barra superior. Para ejecutarla localmente: `npm install`, luego `npm start`, y abrir http://localhost:8080.
