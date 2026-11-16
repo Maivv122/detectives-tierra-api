@@ -1,149 +1,159 @@
-# Detectives de la Tierra
+# 🌎 Earth Detectives · Detectives de la Tierra
 
-Plataforma para explorar, comparar y entender cómo cambia la temperatura del planeta y de Colombia (NASA Space Apps).
+**How much has Colombia warmed — and where?** Earth Detectives is an interactive web platform that turns NASA and NOAA climate records into a map anyone can explore. Search for a department, travel through time, compare regions and discover how temperature has changed across Colombia, using only real, cited data.
 
-**Inicio rápido (sin llaves):**
+Built by our team for the **NASA Space Apps Challenge 2026**, for the challenge on trends in Earth science data.
 
-```bash
-npm install
-npm run datos     # descarga los datos de NASA: zonas y departamentos (unos minutos, una sola vez)
-npm start         # abre http://localhost:8080
-```
+🔗 **Live demo:** https://detectives-tierra-api.onrender.com
+🌐 Available in **English** and **Español** (button in the top bar)
 
-## Qué incluye
+---
 
-| Botón | Qué hace | Datos |
-|---|---|---|
-| Buscador | Escribe un departamento (con o sin tildes) y el mapa vuela hasta él | Natural Earth |
-| MAR | Temperatura del mar alrededor de Colombia (y en MÁS: anomalía y tendencia) | NOAA ERSSTv5 (1970–2021) |
-| AIRE | Temperatura del aire, promedio anual por departamento | NASA POWER (MERRA-2) |
-| COMPARAR | Entre años (mapa de diferencias por departamento) y entre regiones (2 a 4, con resumen y hallazgo principal) | Los mismos datos |
-| MÁS → Mis datos | Sube un CSV (fecha, valor) y la app calcula la tendencia | Tus datos |
+## The problem
 
-Nada se inventa: si una fuente no tiene un año o una región, la app lo dice. La temperatura de la superficie terrestre (MODIS LST) aún no está incluida.
+Climate data is public, but it is not easy to use. NASA and NOAA publish decades of measurements, yet most people — students, teachers, local decision makers — never see what those numbers mean for *their* region. Global averages feel distant, and the tools that handle the raw files are built for specialists.
 
-## Estructura
+## Our solution
 
-- `server.js` · servidor y API · `historico.mjs` / `departamentos.mjs` · descarga de datos de NASA
-- `public/app.js` · globo, capas y línea de tiempo · `public/js/` · módulos: `datos.js`, `comparar.js`, `colombia.js`, `global.js`, `buscar.js`, `graficas.js`
-- `public/data/` · datos (`departamentos.json` e `historico.json` se generan con `npm run datos`)
+We built a map-first platform that answers simple questions with real data:
 
-# API de temperatura en tiempo real
+- *Is my department warming? By how much?*
+- *Which regions changed the most since the 1980s?*
+- *How do two places compare?*
+- *Is the trend real or just natural variability?*
 
-Servidor pequeño en Node.js que:
+Every answer comes with its source, and every statistic is explained in plain language. When a source does not cover a year or a region, the platform says so instead of filling the gap.
 
-1. Consulta la **Weather API** (temperatura, sensación térmica, humedad y descripción del clima) y la **Air Quality API** (índice de calidad del aire, categoría y PM2.5) de Google Maps Platform.
-2. Guarda la llave de Google en el servidor, para que nunca quede expuesta en la página.
-3. Sirve la app web (`public/`) en el mismo dominio, así que el globo puede pedir `/api/...` sin problemas de CORS.
+## Features
 
-Si no hay llave de Google, o Google falla, usa **Open-Meteo** como respaldo (gratis y sin llave). Lo puedes desactivar con `FALLBACK_OPEN_METEO=false`.
-
-## Endpoints
-
-| Ruta | Qué devuelve |
+| Feature | What it does |
 |---|---|
-| `GET /api/temperatura?lat=4.71&lon=-74.07` | Condiciones actuales en un punto |
-| `GET /api/aire?lat=4.71&lon=-74.07` | Calidad del aire actual (índice, categoría y PM2.5) |
-| `GET /api/zonas` | Temperatura y calidad del aire actuales en los puntos de las 6 zonas de Colombia |
-| `GET /api/historico` | Promedio anual por zona: temperatura del aire (NASA POWER, desde 1981) y PM2.5 (CAMS, desde 2023) |
-| `GET /api/ciudades` | Temperatura del aire ahora en 40 ciudades del mundo (Open-Meteo) |
-| `GET /api/salud` | Si la llave de Google está configurada |
+| 🌍 **3D globe + street map** | A satellite globe (NASA Blue Marble) that zooms all the way into a satellite map with streets and cities. Data layers stay visible at every zoom level. |
+| 🔎 **Department search** | Type any of Colombia's 33 departments (accents optional). The map flies there, highlights it and opens its profile. |
+| 🌡 **Sea and air layers** | Sea surface temperature around Colombia, air temperature by department, anomaly (vs. normal) and trend per decade. |
+| ⏱ **Timeline** | Move through the years or play them as an animation. Key climate events (El Niño, La Niña, records) are marked. |
+| 📍 **Department profile** | A one-line verdict ("It is warming: +1.1 °C since the 1980s"), four key cards and the full history chart. |
+| ⇄ **Compare** | *Between years:* the map colors each department by how much it warmed or cooled, with a ranking. *Between regions:* 2 to 4 regions side by side, with a summary box and a **main finding** computed from the data. |
+| 📈 **Interactive charts** | Exact values on hover, toggle series, last 30 / 10 years, drag to zoom into a period, lines or bars, min/max marked and the trend explained in words. |
+| 📂 **My data** | Upload a CSV (date, value), from NASA Giovanni or Excel. The platform validates it, summarizes it and tests for a trend, with clear messages for empty, invalid or incomplete files. |
+| 📱 **Mobile friendly** | Responsive layout and pinch-to-zoom toward your fingers on Android and iPhone. |
 
-Ejemplo de respuesta de `/api/temperatura`:
+### Some findings from the data
 
-```json
-{
-  "lat": 4.71, "lon": -74.07,
-  "temperatura_c": 14.2, "sensacion_c": 13.5, "humedad_pct": 82,
-  "descripcion": "Parcialmente nublado",
-  "icono": "https://maps.gstatic.com/weather/v1/partly_cloudy.svg",
-  "es_de_dia": true, "max_24h_c": 19.1, "min_24h_c": 8.4,
-  "hora": "2026-11-14T16:05:00Z",
-  "fuente": "Google Maps Platform · Weather API",
-  "en_cache": false
-}
-```
+- Between 1981 and 2025, **32 of Colombia's 33 departments warmed**, by **+0.71 °C** on average (NASA POWER).
+- Norte de Santander and Vichada show the largest increases, above **+1.2 °C**.
+- La Guajira is about **4.3 °C warmer** than Antioquia on average, yet Antioquia is warming faster.
 
-## 1. Crear la llave de Google (una sola vez)
+## Data sources
 
-1. Entra a [Google Cloud Console](https://console.cloud.google.com/) y crea o elige un proyecto.
-2. Activa la facturación del proyecto. Google exige una tarjeta, pero hay una cuota mensual gratuita.
-3. En **APIs y servicios → Biblioteca**, busca **Weather API** y pulsa **Habilitar**. Haz lo mismo con **Air Quality API**.
-4. En **APIs y servicios → Credenciales**, crea una **llave de API**.
-5. Restríngela a la **Weather API** y la **Air Quality API**, para que no se pueda usar en otra cosa.
-
-## 2. Probar en tu computador
-
-```bash
-npm install
-GOOGLE_WEATHER_API_KEY=TU_LLAVE npm start
-# abre http://localhost:8080
-```
-
-En Windows (PowerShell):
-
-```powershell
-$env:GOOGLE_WEATHER_API_KEY="TU_LLAVE"; npm start
-```
-
-## 2a. Mapa satelital con calles (Google Maps)
-
-Al tocar «Ver la zona en satélite» (o al hacer zoom al máximo en el globo) se abre un mapa satelital con calles, como Google Maps.
-
-- **Con llave de Google**: se usa Google Maps (satélite + calles + lugares + Street View).
-  1. En Google Cloud → APIs y servicios → Biblioteca, activa **Maps JavaScript API**.
-  2. Crea una llave **nueva** (no uses la del clima) y en «Restricciones de la aplicación» elige **Sitios web** con `http://localhost:8080/*` y, cuando la publiques, `https://TU-APP.onrender.com/*`. En «Restricciones de API» deja solo Maps JavaScript API.
-  3. Copia `.env.example` como `.env` y pon la llave en `GOOGLE_MAPS_API_KEY`. En Render, agrégala en Environment.
-  4. Reinicia el servidor (`Ctrl + C` y `npm start`).
-- **Sin llave**: el mapa usa imágenes de Esri con calles y nombres, sin costo y sin configurar nada.
-
-Esta llave sí llega al navegador (Google Maps funciona así); por eso debe estar restringida por sitio web.
-
-## 2b. Generar la historia por zona (recomendado)
-
-Para que el mapa de Colombia muestre el promedio de temperatura y de calidad del aire de cada año en cada zona:
-
-```bash
-npm run historico
-```
-
-Tarda uno o dos minutos y crea `public/data/historico.json` con:
-
-- **Temperatura**: promedio anual de la temperatura del aire a 2 m (NASA POWER, reanálisis MERRA-2), de 1981 al año pasado. La condición (Más cálido, Más frío…) compara cada año con el promedio 1991–2020 de esa zona.
-- **Calidad del aire**: promedio anual de PM2.5 (Copernicus CAMS vía Open-Meteo), desde 2023; el año en curso aparece como parcial.
-
-Ninguna de las dos fuentes pide llave. Si no corren el script, el servidor arma la historia la primera vez que alguien pide `/api/historico` y la guarda. Si quieren ver los datos dentro de la vista previa de claude.ai, envíen ese `historico.json` y lo incrusto.
-
-## 3. Publicar en Google Cloud Run
-
-Desde esta carpeta, con la [CLI de gcloud](https://cloud.google.com/sdk/docs/install) instalada:
-
-```bash
-gcloud run deploy detectives-tierra \
-  --source . \
-  --region us-east1 \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_WEATHER_API_KEY=TU_LLAVE
-```
-
-Cloud Run te devuelve una URL pública (`https://detectives-tierra-xxxx.run.app`). Esa URL ya es la app completa con la temperatura en tiempo real.
-
-Para no dejar la llave a la vista, puedes guardarla en Secret Manager y usar `--set-secrets GOOGLE_WEATHER_API_KEY=NOMBRE_DEL_SECRETO:latest` en lugar de `--set-env-vars`.
-
-## Variables de entorno
-
-| Variable | Por defecto | Para qué sirve |
+| Data | Source | Period |
 |---|---|---|
-| `GOOGLE_WEATHER_API_KEY` | — | Llave de la Weather API |
-| `CACHE_MINUTES` | `30` | Minutos que se reutiliza una consulta del mismo punto |
-| `FALLBACK_OPEN_METEO` | `true` | Usar Open-Meteo si no hay llave o si Google falla |
-| `CORS_ORIGIN` | `*` | Dominio que puede llamar la API desde otro sitio |
-| `PORT` | `8080` | Puerto (Cloud Run lo asigna solo) |
+| Sea surface temperature (4° cells) | NOAA ERSSTv5 | 1970–2021 |
+| Air temperature at 2 m, by department | NASA POWER (MERRA-2 reanalysis) | 1981–2025 |
+| Global temperature | NASA GISTEMP v4 | 1880–2025 |
+| Department boundaries | Natural Earth | — |
+| Satellite imagery | NASA Blue Marble · Esri World Imagery · NASA GIBS (MODIS) | — |
+| Current temperature | Open-Meteo (Google Weather optional) | Live |
 
-## Cuidar la cuota gratuita
+Department values are the average of the MERRA-2 cells (≈ 55 × 70 km) whose center falls inside each department.
 
-La caché de 30 minutos hace que `/api/zonas` gaste como máximo 7 llamadas de cada API cada media hora, y solo cuando alguien tiene la app abierta. Con la app abierta todo el mes serían unas 10.000 llamadas. Si la van a dejar encendida en una pantalla, suban `CACHE_MINUTES` a 60.
+## How the statistics work
 
-## ¿Por qué no funciona dentro de claude.ai?
+- **Anomaly:** the difference between a year and the reference average.
+- **Trend:** the slope of a linear regression, expressed per decade, with its 95 % confidence interval and Sen's slope.
+- **Significance:** a trend is reported as real only when **both** the regression t-test and the **Mann-Kendall** test give p < 0.05. Otherwise the platform says the change may be natural variability.
 
-La vista previa de la app en claude.ai bloquea las conexiones a servidores externos. Allí el panel «Tiempo real» lo indica, y todo lo demás funciona igual. Al publicarla en Cloud Run, la app y la API quedan en el mismo dominio y la temperatura en vivo aparece sola.
+The technical detail is always available, but folded, so the main message stays simple.
+
+## Tech stack
+
+- **Frontend:** HTML, CSS and vanilla JavaScript · d3.js (globe projection and charts) · WebGL2 (satellite Earth, clouds and relief) · Leaflet (street map)
+- **Backend:** Node.js 18+ with Express — serves the app and a small API for live temperature, with an in-memory cache
+- **Hosting:** Render (free web service), code on GitHub
+- **Languages:** English and Spanish, with a built-in switch
+
+## Run it locally
+
+Requirements: [Node.js](https://nodejs.org) 18 or newer and [Git](https://git-scm.com).
+
+```bash
+git clone https://github.com/Maivv122/detectives-tierra-api.git
+cd detectives-tierra-api
+npm install
+npm start          # open http://localhost:8080
+```
+
+The data files are already included. To regenerate them from NASA (takes a few minutes):
+
+```bash
+npm run datos
+```
+
+No API keys are needed. Optional keys go in a `.env` file (copy `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_WEATHER_API_KEY` | Live temperature from Google Weather (otherwise Open-Meteo is used) |
+| `GOOGLE_MAPS_API_KEY` | Google Maps street view (otherwise Esri imagery is used). Restrict it by website. |
+| `CACHE_MINUTES` | Minutes a live query is reused (default 30) |
+| `PORT` | Server port (default 8080) |
+
+The `.env` file is never uploaded to GitHub.
+
+## Deploy
+
+On [Render](https://render.com): **New → Web Service**, connect this repository and use:
+
+- Build command: `npm install`
+- Start command: `npm start`
+
+Each push to `main` can be published with **Manual Deploy → Deploy latest commit** (or automatically if Auto-Deploy is on). On the free plan the service sleeps after 15 minutes without visits and takes about a minute to wake up.
+
+## Project structure
+
+```
+├── server.js              # Express server and API
+├── scripts/               # Scripts that download NASA data (npm run datos)
+└── public/
+    ├── index.html
+    ├── app.js             # Globe, layers, timeline, statistics, file upload
+    ├── zones.js           # Study zones, sources and events
+    ├── data/              # Climate data and boundaries
+    └── js/
+        ├── i18n.js        # English / Spanish
+        ├── buscar.js      # Department search
+        ├── colombia.js    # Departments on the map and their profile
+        ├── comparar.js    # Compare between years and regions
+        ├── datos.js       # Regions and series
+        ├── graficas.js    # Interactive charts
+        └── plano.js       # Data over the street map
+```
+
+### API
+
+| Route | Returns |
+|---|---|
+| `GET /api/temperatura?lat=4.71&lon=-74.07` | Current conditions at a point |
+| `GET /api/zonas` | Current conditions at the study zones |
+| `GET /api/historico` | Annual mean per study zone |
+| `GET /api/salud` | Server status |
+
+## Team
+
+| Name | Role |
+|---|---|
+| _Name_ | _Role_ |
+| _Name_ | _Role_ |
+| _Name_ | _Role_ |
+
+## Acknowledgments
+
+Data from NASA (POWER, GISTEMP, GIBS, Blue Marble), NOAA (ERSSTv5), Natural Earth, Esri and Open-Meteo. Context for the study zones comes from IDEAM and the sources cited inside the platform.
+
+---
+
+## Español
+
+**Detectives de la Tierra** es una plataforma web interactiva que convierte los registros climáticos de NASA y NOAA en un mapa que cualquiera puede explorar. Permite buscar un departamento, viajar en el tiempo, comparar regiones y ver cómo ha cambiado la temperatura en Colombia, solo con datos reales y citados. La creamos en equipo para el **NASA Space Apps Challenge 2026**.
+
+Para usarla en español, toca **🌐 Español** en la barra superior. Para correrla en tu computador: `npm install` y luego `npm start`, y abre http://localhost:8080.
