@@ -11,8 +11,8 @@
   var live = {};
 
   /* ---------- capa: temperatura del aire ---------- */
-  DT.LAYERS.air = { name: 'Temperatura del aire', title: 'Temperatura del aire a 2 m', desc: 'Aire, no mar: cada variable tiene su propia escala y fuente. En Colombia, promedio anual por departamento; en el mundo, la temperatura de ahora en ciudades.', unit: '°C', src: 'Colombia: NASA POWER (MERRA-2), promedio anual desde 1981. Mundo: temperatura actual (Open-Meteo), solo con el servidor de la app.', range: [1981, 2026] };
-  DT.LINKS.air = [['Fuente: NASA POWER', 'https://power.larc.nasa.gov/'], ['Ciudades ahora: Open-Meteo', 'https://open-meteo.com/']];
+  DT.LAYERS.air = { name: T('Temperatura del aire'), title: T('Temperatura del aire a 2 m'), desc: T('Aire, no mar: cada variable tiene su propia escala y fuente. En Colombia, promedio anual por departamento; en el mundo, la temperatura de ahora en ciudades.'), unit: '°C', src: T('Colombia: NASA POWER (MERRA-2), promedio anual desde 1981. Mundo: temperatura actual (Open-Meteo), solo con el servidor de la app.'), range: [1981, 2026] };
+  DT.LINKS.air = [[T('Fuente: NASA POWER'), 'https://power.larc.nasa.gov/'], [T('Ciudades ahora: Open-Meteo'), 'https://open-meteo.com/']];
   DT.scales.air = d3.scaleSequential(d3.interpolateTurbo).domain([-10, 45]);
   DT.HOOKS.cell.air = function () { return NaN; };   // el mar no se colorea en esta capa
   M.depYear = function (y) {
@@ -92,7 +92,7 @@
     var id = M.depAt(g[0], g[1]); if (!id) { hideTip(); return false; }
     if (hoverDep !== id) { hoverDep = id; DT.requestDraw(); }
     var v = M.depValue(id, S.year), d = M.dep.byId[id];
-    showTip(pt, '<b>' + esc(d.name) + '</b>' + (v !== null ? '<span>🌡 ' + fmt(v, 1) + ' °C · ' + M.depYear(S.year) + '</span>' : '') + '<small>Toca para ver más</small>');
+    showTip(pt, '<b>' + esc(d.name) + '</b>' + (v !== null ? '<span>🌡 ' + fmt(v, 1) + ' °C · ' + M.depYear(S.year) + '</span>' : '') + T('<small>Toca para ver más</small>'));
     DT.showHover(S.layer === 'air' ? v : null, '');
     $('#globe').style.cursor = 'pointer';
     return true;
@@ -141,31 +141,31 @@
   function renderDep() {
     var d = M.dep.byId[S.dep];
     $('#aTitle').textContent = d.name;
-    $('#aSub').textContent = 'Departamento de Colombia · temperatura del aire';
+    $('#aSub').textContent = T('Departamento de Colombia · temperatura del aire');
     var box = $('#analysis'); box.hidden = false;
     var s = M.series('dep:' + d.id), html = '';
     var lv = live[d.id];
     if (!s) {
-      html = '<div class="note">Aún no están los datos de temperatura del aire por departamento. Se generan con <b>npm run departamentos</b> en la carpeta del proyecto (NASA POWER) y aparecen aquí solos. No se muestran valores inventados.</div>';
+      html = T('<div class="note">Aún no están los datos de temperatura del aire por departamento. Se generan con <b>npm run departamentos</b> en la carpeta del proyecto (NASA POWER) y aparecen aquí solos. No se muestran valores inventados.</div>');
     } else {
       var y = M.depYear(S.year), last = M.lastYear(s), v = M.valueAt(s, y), an = M.anomaly(s, y), cat = an !== null ? DT.catOfAnom(an) : null;
       var full = DT.analyze(s.xs, s.ys), b80 = M.meanIn(s, 1981, 1990), rec = M.meanIn(s, last - 9, last), rk = rankOf(d.id, 'trend', last);
-      var note = S.year > last ? '<div class="src">' + S.year + ' aún no tiene promedio anual; se muestra ' + last + ', el último año completo.</div>' : '';
+      var note = S.year > last ? '<div class="src">' + S.year + T(' aún no tiene promedio anual; se muestra ') + last + T(', el último año completo.</div>') : '';
       var sigUp = full && full.p < 0.05 && full.pmk < 0.05, dd = rec !== null && b80 !== null ? rec - b80 : null;
-      html += '<div class="plain"><span class="pe">' + (sigUp ? (full.b > 0 ? '📈' : '📉') : '➖') + '</span><div><b>' + (sigUp ? (full.b > 0 ? 'Se está calentando' : 'Se está enfriando') : 'Sin un cambio claro') + '</b><span>' + (dd !== null ? 'Hoy el aire está ' + sfmt(dd, 1) + ' °C ' + (dd >= 0 ? 'más caliente' : 'más frío') + ' que en los años 80' : '') + '</span></div></div>' +
+      html += '<div class="plain"><span class="pe">' + (sigUp ? (full.b > 0 ? '📈' : '📉') : '➖') + '</span><div><b>' + (sigUp ? (full.b > 0 ? T('Se está calentando') : T('Se está enfriando')) : T('Sin un cambio claro')) + '</b><span>' + (dd !== null ? T('Hoy el aire está ') + sfmt(dd, 1) + ' °C ' + (dd >= 0 ? T('más caliente') : T('más frío')) + T(' que en los años 80') : '') + '</span></div></div>' +
         '<div class="mcards c4">' +
-        M.card('🌡 Temperatura ' + y, v === null ? '—' : fmt(v, 1) + ' °C', 'promedio del año', v === null ? null : DT.scales.air(v)) +
-        M.card('Frente a lo normal', an === null ? '—' : sfmt(an, 1) + ' °C', cat ? DT.badge(cat) : '') +
-        M.card('Ritmo', full ? sfmt(full.b * 10, 2) + ' °C' : '—', 'cada 10 años', full && full.b > 0 ? '#ff7a59' : '#5cb7ff') +
-        M.card('Desde los años 80', dd !== null ? sfmt(dd, 1) + ' °C' : '—', 'más ' + (dd !== null && dd < 0 ? 'frío' : 'caliente')) + '</div>' + note +
-        (lv && lv.status === 'ok' && lv.t !== null && lv.t !== undefined ? '<div class="nowrow">● Ahora mismo en el centro del departamento: <b>' + fmt(lv.t, 1) + ' °C</b>' + (lv.desc ? ' · ' + esc(lv.desc) : '') + '</div>' : '') +
-        '<div class="row" style="gap:6px"><button class="btn" id="dDetail" aria-expanded="' + S.depOpen + '">' + (S.depOpen ? '▾ Ocultar gráfica' : '📊 Ver gráfica') + '</button><button class="btn" id="dCmp">⇄ Comparar</button></div>';
+        M.card(T('🌡 Temperatura ') + y, v === null ? '—' : fmt(v, 1) + ' °C', T('promedio del año'), v === null ? null : DT.scales.air(v)) +
+        M.card(T('Frente a lo normal'), an === null ? '—' : sfmt(an, 1) + ' °C', cat ? DT.badge(cat) : '') +
+        M.card(T('Ritmo'), full ? sfmt(full.b * 10, 2) + ' °C' : '—', T('cada 10 años'), full && full.b > 0 ? '#ff7a59' : '#5cb7ff') +
+        M.card(T('Desde los años 80'), dd !== null ? sfmt(dd, 1) + ' °C' : '—', (dd !== null && dd < 0 ? T('más frío') : T('más caliente'))) + '</div>' + note +
+        (lv && lv.status === 'ok' && lv.t !== null && lv.t !== undefined ? T('<div class="nowrow">● Ahora mismo en el centro del departamento: <b>') + fmt(lv.t, 1) + ' °C</b>' + (lv.desc ? ' · ' + esc(lv.desc) : '') + '</div>' : '') +
+        '<div class="row" style="gap:6px"><button class="btn" id="dDetail" aria-expanded="' + S.depOpen + '">' + (S.depOpen ? T('▾ Ocultar gráfica') : T('📊 Ver gráfica')) + T('</button><button class="btn" id="dCmp">⇄ Comparar</button></div>');
       if (S.depOpen) {
-        html += '<div class="chart">' + DT.chartSVG(s.xs, s.ys, full, { marker: y, varName: 'Temperatura del aire a 2 m', title: 'Temperatura media anual en ' + d.name, name: d.name, aria: 'Temperatura del aire en ' + d.name }) + '</div>' +
-          DT.verdictHTML(full, { per: s.xs[0] + '–' + last, dec: 2, unit: '°C', subject: 'En ' + d.name + ' la temperatura del aire' });
+        html += '<div class="chart">' + DT.chartSVG(s.xs, s.ys, full, { marker: y, varName: T('Temperatura del aire a 2 m'), title: T('Temperatura media anual en ') + d.name, name: d.name, aria: T('Temperatura del aire en ') + d.name }) + '</div>' +
+          DT.verdictHTML(full, { per: s.xs[0] + '–' + last, dec: 2, unit: '°C', subject: T('En ') + d.name + T(' la temperatura del aire') });
         var warmest = s.xs.reduce(function (bb, x, i) { return bb === null || s.ys[i] > bb[1] ? [x, s.ys[i]] : bb; }, null);
-        html += '<div class="mcards">' + M.card('Año más cálido', String(warmest[0]), fmt(warmest[1], 1) + ' °C') + (rk ? M.card('Ranking de calentamiento', rk[0] + '.º de ' + rk[1], 'departamentos, desde 1981') : '') + M.card('Celdas promediadas', String(s.celdas || 1), s.celdas ? 'de ~55 × 70 km' : 'departamento menor que una celda') + '</div>' +
-          '<div class="src"><b>Fuente:</b> ' + esc(s.src) + '. <b>Método:</b> ' + esc(s.method || '') + ' <b>Datos generados:</b> ' + esc((s.generado || '').slice(0, 10)) + '. Límites: Natural Earth.</div>';
+        html += '<div class="mcards">' + M.card(T('Año más cálido'), String(warmest[0]), fmt(warmest[1], 1) + ' °C') + (rk ? M.card(T('Ranking de calentamiento'), rk[0] + '.º de ' + rk[1], T('departamentos, desde 1981')) : '') + M.card(T('Celdas promediadas'), String(s.celdas || 1), s.celdas ? T('de ~55 × 70 km') : T('departamento menor que una celda')) + '</div>' +
+          T('<div class="src"><b>Fuente:</b> ') + esc(s.src) + T('. <b>Método:</b> ') + esc(s.method || '') + T(' <b>Datos generados:</b> ') + esc((s.generado || '').slice(0, 10)) + T('. Límites: Natural Earth.</div>');
       }
     }
     $('#aBody').innerHTML = html;
@@ -184,17 +184,17 @@
     if (S.layer !== 'air') return;
     DT.legend();
     var y = M.depYear(S.year);
-    $('#layerDate').textContent = S.focus === 'colombia' ? (M.dep.status === 'ok' ? 'Colombia · promedio anual de ' + y + (S.year > y ? ' (último año completo)' : '') + ' por departamento' : 'Colombia · faltan los datos por departamento') : 'Mundo · temperatura del aire ahora en ciudades';
+    $('#layerDate').textContent = S.focus === 'colombia' ? (M.dep.status === 'ok' ? T('Colombia · promedio anual de ') + y + (S.year > y ? T(' (último año completo)') : '') + T(' por departamento') : T('Colombia · faltan los datos por departamento')) : T('Mundo · temperatura del aire ahora en ciudades');
   });
 
   /* ---------- accesos rápidos en el panel izquierdo ---------- */
   function renderQuick() {
     var box = $('#depBox'); if (!box || !M.dep.geo) return;
-    box.innerHTML = '<div class="lbl">Departamentos</div><div class="dchips">' + QUICK.filter(function (id) { return M.dep.byId[id]; }).map(function (id) {
+    box.innerHTML = T('<div class="lbl">Departamentos</div><div class="dchips">') + QUICK.filter(function (id) { return M.dep.byId[id]; }).map(function (id) {
       return '<button data-dep="' + id + '" aria-pressed="' + (S.dep === id) + '">' + esc(M.dep.byId[id].name.replace(' D.C.', '')) + '</button>';
-    }).join('') + '</div><select id="depAll" aria-label="Todos los departamentos"><option value="">Todos los departamentos…</option>' +
+    }).join('') + T('</div><select id="depAll" aria-label="Todos los departamentos"><option value="">Todos los departamentos…</option>') +
       M.depList().map(function (d) { return '<option value="' + d.id + '"' + (S.dep === d.id ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select>' +
-      (M.dep.status !== 'ok' ? '<div class="src">Los valores por departamento aparecen al generar <b>departamentos.json</b> (npm run departamentos).</div>' : '<div class="src">Toca un departamento en el mapa o elige uno aquí.</div>');
+      (M.dep.status !== 'ok' ? T('<div class="src">Los valores por departamento aparecen al generar <b>departamentos.json</b> (npm run departamentos).</div>') : T('<div class="src">Toca un departamento en el mapa o elige uno aquí.</div>'));
     box.querySelectorAll('[data-dep]').forEach(function (b) { b.addEventListener('click', function () { selectDep(b.getAttribute('data-dep')); }); });
     box.querySelector('#depAll').addEventListener('change', function (e) { if (e.target.value) selectDep(e.target.value); });
   }
@@ -207,6 +207,6 @@
     var sc = DT.scales.air, dom = sc.domain(), cv = $('#legBar'), c2 = cv.getContext('2d');
     for (var x = 0; x < cv.width; x++) { c2.fillStyle = sc(dom[0] + (dom[1] - dom[0]) * x / (cv.width - 1)); c2.fillRect(x, 0, 1, cv.height); }
     $('#legTicks').innerHTML = '<span>' + fmt(dom[0], 0) + '</span><span>' + fmt((dom[0] + dom[1]) / 2, 0) + '</span><span>' + fmt(dom[1], 0) + '</span>';
-    $('#legUnit').textContent = S.focus === 'colombia' ? '°C · aire a 2 m, promedio ' + (M.depYear(S.year) || '') + ' (NASA POWER)' : '°C · aire ahora en ciudades (Open-Meteo)';
+    $('#legUnit').textContent = S.focus === 'colombia' ? T('°C · aire a 2 m, promedio ') + (M.depYear(S.year) || '') + ' (NASA POWER)' : T('°C · aire ahora en ciudades (Open-Meteo)');
   };
 })();

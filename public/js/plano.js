@@ -18,11 +18,11 @@
     pane = SAT.map.createPane('datos'); pane.style.zIndex = 350;
     rnd = L.canvas({ pane: 'datos', padding: 0.3 });
   }
-  function unitFor(layer) { return layer === 'trend' ? ' °C por década' : ' °C'; }
+  function unitFor(layer) { return layer === 'trend' ? T(' °C por década') : ' °C'; }
   function cellText(i, layer) {
     var v = DT.cellValue(i, layer);
-    if (!isFinite(v)) return 'Sin datos';
-    var name = { sst: 'Temperatura del mar', anom: 'Diferencia con lo normal', trend: 'Cambio cada 10 años', cmp: 'Cambio entre los dos años' }[layer] || 'Valor';
+    if (!isFinite(v)) return T('Sin datos');
+    var name = { sst: T('Temperatura del mar'), anom: T('Diferencia con lo normal'), trend: T('Cambio cada 10 años'), cmp: T('Cambio entre los dos años') }[layer] || T('Valor');
     return '<b>' + name + '</b><br>' + (layer === 'sst' ? fmt(v, 1) : sfmt(v, 2)) + unitFor(layer) + (layer === 'trend' || layer === 'cmp' ? '' : ' · ' + DT.mapYear());
   }
   function depMode() {
@@ -43,9 +43,9 @@
   function depTip(mode) {
     return function (layer) {
       var id = layer.feature.properties.id, d = M.dep.byId[id], t = '<b>' + esc(d.name) + '</b>';
-      if (mode.kind === 'diff') { var r = mode.diff.byId[id]; if (r) t += '<br>' + (r.d >= 0 ? 'Se calentó ' : 'Se enfrió ') + sfmt(r.d, 2) + ' °C (' + r.a + ' → ' + r.b + ')'; }
-      else { var v = M.depValue(id, S.year); if (v !== null) t += '<br>🌡 Aire ' + fmt(v, 1) + ' °C · ' + M.depYear(S.year); }
-      return t + '<br><small>Toca para ver más</small>';
+      if (mode.kind === 'diff') { var r = mode.diff.byId[id]; if (r) t += '<br>' + (r.d >= 0 ? T('Se calentó ') : T('Se enfrió ')) + sfmt(r.d, 2) + ' °C (' + r.a + ' → ' + r.b + ')'; }
+      else { var v = M.depValue(id, S.year); if (v !== null) t += T('<br>🌡 Aire ') + fmt(v, 1) + ' °C · ' + M.depYear(S.year); }
+      return t + T('<br><small>Toca para ver más</small>');
     };
   }
   function build() {

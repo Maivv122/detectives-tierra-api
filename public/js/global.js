@@ -68,13 +68,13 @@
   });
   DT.HOOKS.hover.push(function (pt, g) {
     if (S.layer !== 'air' || S.focus === 'colombia') return false;
-    if (!CITIES.data) { if (g) DT.showHover(null, 'Toca para consultar la temperatura del aire ahora · ' + DT.coordText(g[0], g[1])); return !!g; }
+    if (!CITIES.data) { if (g) DT.showHover(null, T('Toca para consultar la temperatura del aire ahora · ') + DT.coordText(g[0], g[1])); return !!g; }
     for (var i = 0; i < CITIES.data.length; i++) {
       var c = CITIES.data[i]; if (c.t === null || !DT.visible([c.lon, c.lat])) continue;
       var p = DT.project([c.lon, c.lat]);
-      if (Math.hypot(p[0] - pt[0], p[1] - pt[1]) < 9) { DT.showHover(c.t, c.n + ': ' + fmt(c.t, 1) + ' °C ahora (aire a 2 m)'); return true; }
+      if (Math.hypot(p[0] - pt[0], p[1] - pt[1]) < 9) { DT.showHover(c.t, c.n + ': ' + fmt(c.t, 1) + T(' °C ahora (aire a 2 m)')); return true; }
     }
-    if (g) { DT.showHover(null, 'Toca para consultar la temperatura del aire ahora · ' + DT.coordText(g[0], g[1])); return true; }
+    if (g) { DT.showHover(null, T('Toca para consultar la temperatura del aire ahora · ') + DT.coordText(g[0], g[1])); return true; }
     return false;
   });
 
@@ -92,13 +92,13 @@
   DT.HOOKS.analysis.push(function () {
     if (!S.pt || S.zone || S.dep || S.sel !== null) { S.pt = null; return false; }
     var p = S.pt, inCol = M.depAt(p.lon, p.lat);
-    $('#aTitle').textContent = 'Punto seleccionado';
-    $('#aSub').textContent = DT.coordText(p.lon, p.lat) + ' · temperatura del aire';
-    var body = p.status === 'cargando' ? '<div class="src">Consultando la temperatura actual…</div>'
+    $('#aTitle').textContent = T('Punto seleccionado');
+    $('#aSub').textContent = DT.coordText(p.lon, p.lat) + T(' · temperatura del aire');
+    var body = p.status === 'cargando' ? T('<div class="src">Consultando la temperatura actual…</div>')
       : p.status === 'ok' && p.t !== null && p.t !== undefined
-        ? '<div class="mcards">' + M.card('Aire ahora', fmt(p.t, 1) + ' °C', p.desc ? esc(p.desc) : '', DT.scales.air(p.t)) + (p.hum !== undefined && p.hum !== null ? M.card('Humedad', fmt(p.hum, 0) + ' %', '') : '') + '</div><div class="src">Fuente: ' + esc(p.fuente || 'servidor de la app') + '. Es la temperatura de este momento, no un promedio anual.</div>'
-        : '<div class="note">La temperatura del aire en tiempo real necesita el servidor de la app (localhost o Render). Aquí no hay conexión con él, así que no se muestra ningún valor.</div>';
-    if (inCol) body += '<button class="btn" id="ptDep">Ver el departamento: ' + esc(M.dep.byId[inCol].name) + '</button>';
+        ? '<div class="mcards">' + M.card(T('Aire ahora'), fmt(p.t, 1) + ' °C', p.desc ? esc(p.desc) : '', DT.scales.air(p.t)) + (p.hum !== undefined && p.hum !== null ? M.card(T('Humedad'), fmt(p.hum, 0) + ' %', '') : '') + T('</div><div class="src">Fuente: ') + esc(p.fuente || T('servidor de la app')) + '. Es la temperatura de este momento, no un promedio anual.</div>'
+        : T('<div class="note">La temperatura del aire en tiempo real necesita el servidor de la app (localhost o Render). Aquí no hay conexión con él, así que no se muestra ningún valor.</div>');
+    if (inCol) body += T('<button class="btn" id="ptDep">Ver el departamento: ') + esc(M.dep.byId[inCol].name) + '</button>';
     $('#aBody').innerHTML = body;
     $('#analysis').hidden = false;
     var b = $('#ptDep'); if (b) b.addEventListener('click', function () { S.pt = null; DT.setFocus('colombia'); M.selectDep(inCol); });
@@ -108,14 +108,14 @@
 
   /* ---------- accesos rápidos ---------- */
   var PLACES = [
-    ['Continentes', [['América del Sur', -60, -15, 2.2], ['América del Norte', -100, 45, 2], ['Europa', 15, 50, 2.6], ['África', 20, 3, 2], ['Asia', 90, 40, 1.8], ['Oceanía', 140, -25, 2.2], ['Antártida', 0, -80, 2]]],
-    ['Océanos y mares', [['Océano Pacífico', -150, 0, 1.4], ['Océano Atlántico', -30, 15, 1.6], ['Océano Índico', 80, -20, 1.8], ['Océano Ártico', 0, 85, 1.8], ['Mar Caribe', -75, 15, 3.2], ['Mar Mediterráneo', 18, 37, 3.4]]],
-    ['Lugares', [['Colombia', -73.5, 4.5, 'col'], ['España', -3.7, 40.2, 4], ['Gran Barrera de Coral', 147, -18, 4], ['Pacífico ecuatorial (El Niño)', -120, 0, 2.2]]]
+    [T('Continentes'), [[T('América del Sur'), -60, -15, 2.2], [T('América del Norte'), -100, 45, 2], [T('Europa'), 15, 50, 2.6], [T('África'), 20, 3, 2], ['Asia', 90, 40, 1.8], [T('Oceanía'), 140, -25, 2.2], [T('Antártida'), 0, -80, 2]]],
+    [T('Océanos y mares'), [['Océano Pacífico', -150, 0, 1.4], ['Océano Atlántico', -30, 15, 1.6], ['Océano Índico', 80, -20, 1.8], ['Océano Ártico', 0, 85, 1.8], ['Mar Caribe', -75, 15, 3.2], ['Mar Mediterráneo', 18, 37, 3.4]]],
+    [T('Lugares'), [['Colombia', -73.5, 4.5, 'col'], [T('España'), -3.7, 40.2, 4], [T('Gran Barrera de Coral'), 147, -18, 4], [T('Pacífico ecuatorial (El Niño)'), -120, 0, 2.2]]]
   ];
   function renderScaleBox() {
     var box = $('#scaleBox'); if (!box) return;
     var showScale = S.layer === 'sst' || S.layer === 'air';
-    box.innerHTML = showScale ? '<label class="chkl"><input type="checkbox" id="dynScale"' + (S.dynScale ? ' checked' : '') + '> Ajustar los colores a los valores que se ven</label>' : '';
+    box.innerHTML = showScale ? '<label class="chkl"><input type="checkbox" id="dynScale"' + (S.dynScale ? ' checked' : '') + T('> Ajustar los colores a los valores que se ven</label>') : '';
     var ds = box.querySelector('#dynScale');
     if (ds) ds.addEventListener('change', function (e) { S.dynScale = e.target.checked; DT.refresh(); });
   }

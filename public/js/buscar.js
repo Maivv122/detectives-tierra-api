@@ -33,10 +33,10 @@
     var q = input.value;
     clear.hidden = !q;
     if (!q.trim()) { close(); return; }
-    if (!M.dep.geo) { list.innerHTML = '<li class="qmsg">Cargando departamentos…</li>'; open(); return; }
+    if (!M.dep.geo) { list.innerHTML = T('<li class="qmsg">Cargando departamentos…</li>'); open(); return; }
     items = search(q); active = items.length ? 0 : -1;
     if (!items.length) {
-      list.innerHTML = '<li class="qmsg">No encontré «' + esc(q) + '». Prueba con el nombre de un departamento, por ejemplo <b>Antioquia</b> o <b>Meta</b>.</li>';
+      list.innerHTML = T('<li class="qmsg">No encontré «') + esc(q) + T('». Prueba con el nombre de un departamento, por ejemplo <b>Antioquia</b> o <b>Meta</b>.</li>');
     } else {
       var y = M.depYear ? M.depYear(S.year) : null;
       list.innerHTML = items.map(function (d, i) {

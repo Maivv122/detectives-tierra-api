@@ -11,7 +11,7 @@
 
   function nf(v, d) {
     if (v === null || v === undefined || !isFinite(v)) return '—';
-    return v.toFixed(d).replace('-', '−').replace('.', ',');
+    var t = v.toFixed(d).replace('-', '−'); return window.LANG === 'en' ? t : t.replace('.', ',');
   }
   function sf(v, d) { return (v > 0 ? '+' : '') + nf(v, d); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -25,9 +25,9 @@
   G.line = function (series, o) {
     o = o || {};
     series = series.filter(function (s) { return s && s.xs && s.xs.length; });
-    if (!series.length) return '<p class="note">No hay datos para dibujar.</p>';
+    if (!series.length) return T('<p class="note">No hay datos para dibujar.</p>');
     var all = []; series.forEach(function (s) { s.xs.forEach(function (x, i) { if (isFinite(s.ys[i]) && s.ys[i] !== null) all.push(x); }); });
-    if (!all.length) return '<p class="note">No hay datos para dibujar.</p>';
+    if (!all.length) return T('<p class="note">No hay datos para dibujar.</p>');
     var full = d3.extent(all), id = 'g' + (++N);
     var st = REG[id] = {
       id: id, series: series.map(function (s, i) { return { name: s.name || 'Serie ' + (i + 1), xs: s.xs, ys: s.ys, color: s.color || COLORS[i % COLORS.length] }; }),
@@ -38,27 +38,27 @@
   };
 
   function inner(st) {
-    var o = st.o, unit = o.unit === undefined ? '°C' : o.unit, varName = o.varName || 'Temperatura', dom = st.dom;
+    var o = st.o, unit = o.unit === undefined ? '°C' : o.unit, varName = o.varName || T('Temperatura'), dom = st.dom;
     var vis = st.series.filter(function (s) { return !st.hidden[s.name]; });
     var span = st.full[1] - st.full[0];
     var head = (o.title ? '<div class="gt">' + esc(o.title) + '</div>' : '') +
       '<div class="gs">' + esc(varName) + (unit && varName.indexOf(unit) < 0 ? ' (' + esc(unit) + ')' : '') + ' · ' + xl(st, dom[0]) + '–' + xl(st, dom[1]) + (o.freq ? ' · ' + esc(o.freq) : '') + '</div>';
-    var per = [['Todo', st.full]];
-    if (span > 35) per.push(['Últimos 30 años', [st.full[1] - 29, st.full[1]]]);
-    if (span > 15) per.push(['Últimos 10 años', [st.full[1] - 9, st.full[1]]]);
+    var per = [[T('Todo'), st.full]];
+    if (span > 35) per.push([T('Últimos 30 años'), [st.full[1] - 29, st.full[1]]]);
+    if (span > 15) per.push([T('Últimos 10 años'), [st.full[1] - 9, st.full[1]]]);
     var isFull = dom[0] === st.full[0] && dom[1] === st.full[1];
     var tools = '<div class="gtools">' + per.map(function (p) {
       var on = Math.round(p[1][0]) === Math.round(dom[0]) && Math.round(p[1][1]) === Math.round(dom[1]);
       return '<button data-gper="' + p[1][0] + ',' + p[1][1] + '" class="' + (on ? 'on' : '') + '">' + p[0] + '</button>';
-    }).join('') + (!isFull && !per.some(function (p) { return Math.round(p[1][0]) === Math.round(dom[0]) && Math.round(p[1][1]) === Math.round(dom[1]); }) ? '<button data-gper="' + st.full.join(',') + '" class="on">↺ Quitar zoom</button>' : '') +
-      '<span class="gsep"></span><button data-gtype="line" class="' + (st.type === 'line' ? 'on' : '') + '" title="Ver como líneas en el tiempo">📈 Líneas</button><button data-gtype="bars" class="' + (st.type === 'bars' ? 'on' : '') + '" title="' + (st.series.length > 1 ? 'Comparar el promedio de cada región' : 'Ver cada año como una barra') + '">📊 Barras</button></div>';
+    }).join('') + (!isFull && !per.some(function (p) { return Math.round(p[1][0]) === Math.round(dom[0]) && Math.round(p[1][1]) === Math.round(dom[1]); }) ? '<button data-gper="' + st.full.join(',') + T('" class="on">↺ Quitar zoom</button>') : '') +
+      '<span class="gsep"></span><button data-gtype="line" class="' + (st.type === 'line' ? 'on' : '') + T('" title="Ver como líneas en el tiempo">📈 Líneas</button><button data-gtype="bars" class="') + (st.type === 'bars' ? 'on' : '') + '" title="' + (st.series.length > 1 ? T('Comparar el promedio de cada región') : T('Ver cada año como una barra')) + T('">📊 Barras</button></div>');
     var leg = st.series.length > 1 || o.legend ? '<div class="gleg">' + st.series.map(function (s) {
       var off = st.hidden[s.name];
-      return '<button data-gser="' + esc(s.name) + '" class="' + (off ? 'off' : '') + '" aria-pressed="' + !off + '" title="Toca para ' + (off ? 'mostrar' : 'ocultar') + '"><i style="background:' + s.color + '"></i>' + esc(s.name) + '</button>';
+      return '<button data-gser="' + esc(s.name) + '" class="' + (off ? 'off' : '') + '" aria-pressed="' + !off + T('" title="Toca para ') + (off ? T('mostrar') : T('ocultar')) + '"><i style="background:' + s.color + '"></i>' + esc(s.name) + '</button>';
     }).join('') + '</div>' : '';
     var svg = st.type === 'bars' ? (st.series.length > 1 ? barsCompare(st, vis, unit) : barsYears(st, vis[0] || st.series[0], unit)) : lines(st, vis, unit, varName);
     return head + tools + '<div class="gplot">' + svg + '</div>' + leg + keys(st, vis, unit) +
-      '<div class="ghint">Pasa el cursor (o el dedo) para ver los valores · arrastra sobre la gráfica para acercar un periodo</div><div class="gtip" hidden></div>';
+      T('<div class="ghint">Pasa el cursor (o el dedo) para ver los valores · arrastra sobre la gráfica para acercar un periodo</div><div class="gtip" hidden></div>');
   }
 
   function yScale(vis, dom, o) {
@@ -77,7 +77,7 @@
         '<text x="' + (MG.l - 5) + '" y="' + (Y(t) + 3) + '" text-anchor="end" class="gtk">' + nf(t, yd) + '</text>';
     });
     if (X) X.ticks(6).filter(function (t) { return t % 1 === 0; }).forEach(function (t) { out += '<text x="' + X(t) + '" y="' + (H - MG.b + 13) + '" text-anchor="middle" class="gtk">' + t + '</text>'; });
-    out += '<text x="' + ((MG.l + W - MG.r) / 2) + '" y="' + (H - 4) + '" text-anchor="middle" class="gax">Año</text>';
+    out += '<text x="' + ((MG.l + W - MG.r) / 2) + '" y="' + (H - 4) + T('" text-anchor="middle" class="gax">Año</text>');
     out += '<text transform="translate(11,' + ((MG.t + H - MG.b) / 2) + ') rotate(-90)" text-anchor="middle" class="gax">' + esc(varName.length > 26 ? varName.slice(0, 25) + '…' : varName) + (unit && varName.indexOf(unit) < 0 ? ' (' + esc(unit) + ')' : '') + '</text>';
     return out;
   }
@@ -101,7 +101,7 @@
       var p1 = pts(vis[0], dom);
       if (p1.length > 2) {
         var mx = p1.reduce(function (a, d) { return d[1] > a[1] ? d : a; }), mn = p1.reduce(function (a, d) { return d[1] < a[1] ? d : a; }), dd = decFor(Y.domain()[1] - Y.domain()[0]) + 1;
-        [[mx, 'máx', -7], [mn, 'mín', 13]].forEach(function (k) {
+        [[mx, T('máx'), -7], [mn, T('mín'), 13]].forEach(function (k) {
           var x = X(k[0][0]), anc = x > W - 70 ? 'end' : x < MG.l + 40 ? 'start' : 'middle';
           out += '<circle cx="' + x + '" cy="' + Y(k[0][1]) + '" r="3.6" fill="none" stroke="#fff" stroke-width="1.4"/><text x="' + x + '" y="' + (Y(k[0][1]) + k[2]) + '" text-anchor="' + anc + '" class="gan">' + k[1] + ' ' + nf(k[0][1], dd) + ' (' + xl(st, k[0][0]) + ')</text>';
         });
@@ -121,34 +121,34 @@
     var Y = yScale([s], dom, o);
     st.X = { band: X, inv: function (px) { var i = Math.floor((px - MG.l) / X.step()); return p[Math.max(0, Math.min(p.length - 1, i))] ? p[Math.max(0, Math.min(p.length - 1, i))][0] : null; } };
     st.Y = Y;
-    var out = axes(null, Y, unit, o.varName || 'Temperatura', o);
+    var out = axes(null, Y, unit, o.varName || T('Temperatura'), o);
     var tk = d3.scaleLinear().domain(dom).ticks(6).filter(function (t) { return t % 1 === 0; });
     tk.forEach(function (t) { if (X(t) !== undefined) out += '<text x="' + (X(t) + X.bandwidth() / 2) + '" y="' + (H - MG.b + 13) + '" text-anchor="middle" class="gtk">' + t + '</text>'; });
     out += '<line x1="' + MG.l + '" x2="' + (W - MG.r) + '" y1="' + Y(base) + '" y2="' + Y(base) + '" stroke="#cbd5e1" stroke-dasharray="3 3"/>' +
-      '<text x="' + (W - MG.r) + '" y="' + (Y(base) - 4) + '" text-anchor="end" class="gan">' + (o.zero ? 'lo normal' : 'promedio ' + nf(base, 1)) + '</text>';
+      '<text x="' + (W - MG.r) + '" y="' + (Y(base) - 4) + '" text-anchor="end" class="gan">' + (o.zero ? T('lo normal') : T('promedio ') + nf(base, 1)) + '</text>';
     p.forEach(function (d) {
       var up = d[1] >= base, y0 = Y(base), y1 = Y(d[1]);
       out += '<rect x="' + X(d[0]) + '" width="' + Math.max(1, X.bandwidth()) + '" y="' + Math.min(y0, y1) + '" height="' + Math.max(0.6, Math.abs(y1 - y0)) + '" fill="' + (up ? '#ff7a59' : '#5cb7ff') + '"/>';
     });
     out += '<line class="gcross" x1="0" x2="0" y1="' + MG.t + '" y2="' + (H - MG.b) + '" stroke="#fff" stroke-width="1" visibility="hidden"/><g class="gdots"></g><rect class="gbrush" x="0" width="0" y="' + MG.t + '" height="' + (H - MG.b - MG.t) + '" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" visibility="hidden"/>';
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Barras por año">' + out + '</svg>';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + T('" role="img" aria-label="Barras por año">') + out + '</svg>';
   }
   // varias regiones: barra con el promedio del periodo de cada una (misma escala)
   function barsCompare(st, vis, unit) {
     st.X = null;
     var rows = vis.map(function (s) { var p = pts(s, st.dom); return { s: s, v: p.length ? d3.mean(p, function (d) { return d[1]; }) : null }; }).filter(function (r) { return r.v !== null; });
-    if (!rows.length) return '<p class="note">No hay datos en este periodo.</p>';
+    if (!rows.length) return T('<p class="note">No hay datos en este periodo.</p>');
     var rh = 30, h = rows.length * rh + 34, lo = Math.min(0, d3.min(rows, function (r) { return r.v; })), hi = Math.max(0, d3.max(rows, function (r) { return r.v; }));
     var X = d3.scaleLinear().domain([lo, hi]).nice().range([130, W - 50]), out = '';
     X.ticks(4).forEach(function (t) { out += '<line x1="' + X(t) + '" x2="' + X(t) + '" y1="4" y2="' + (h - 26) + '" stroke="#1f3a52"/><text x="' + X(t) + '" y="' + (h - 14) + '" text-anchor="middle" class="gtk">' + nf(t, 0) + '</text>'; });
-    out += '<text x="' + ((130 + W - 50) / 2) + '" y="' + (h - 2) + '" text-anchor="middle" class="gax">Promedio ' + Math.round(st.dom[0]) + '–' + Math.round(st.dom[1]) + (unit ? ' (' + esc(unit) + ')' : '') + '</text>';
+    out += '<text x="' + ((130 + W - 50) / 2) + '" y="' + (h - 2) + T('" text-anchor="middle" class="gax">Promedio ') + Math.round(st.dom[0]) + '–' + Math.round(st.dom[1]) + (unit ? ' (' + esc(unit) + ')' : '') + '</text>';
     rows.forEach(function (r, i) {
       var y = 6 + i * rh;
       out += '<text x="124" y="' + (y + 15) + '" text-anchor="end" class="gname">' + esc(r.s.name.length > 20 ? r.s.name.slice(0, 19) + '…' : r.s.name) + '</text>' +
         '<rect x="' + Math.min(X(0), X(r.v)) + '" y="' + (y + 3) + '" width="' + Math.max(1, Math.abs(X(r.v) - X(0))) + '" height="' + (rh - 10) + '" rx="3" fill="' + r.s.color + '"><title>' + esc(r.s.name) + ': ' + nf(r.v, 2) + ' ' + esc(unit) + '</title></rect>' +
         '<text x="' + (Math.max(X(0), X(r.v)) + 4) + '" y="' + (y + 15) + '" class="gval">' + nf(r.v, 1) + ' ' + esc(unit) + '</text>';
     });
-    return '<svg viewBox="0 0 ' + W + ' ' + h + '" role="img" aria-label="Promedio de cada región">' + out + '</svg>';
+    return '<svg viewBox="0 0 ' + W + ' ' + h + T('" role="img" aria-label="Promedio de cada región">') + out + '</svg>';
   }
   // valores clave en lenguaje sencillo
   function keys(st, vis, unit) {
@@ -156,19 +156,19 @@
       var p = pts(s, st.dom); if (!p.length) return '';
       var r = trend(p), first = p[0], last = p[p.length - 1], d = decFor(Math.abs(last[1]) + 1) > 1 ? 2 : 1;
       var mx = p.reduce(function (a, q) { return q[1] > a[1] ? q : a; }), mn = p.reduce(function (a, q) { return q[1] < a[1] ? q : a; });
-      var words = r ? (Math.abs(r.b * 10) < 0.005 ? 'casi no cambia' : (r.b > 0 ? 'sube ' : 'baja ') + nf(Math.abs(r.b * 10), 2) + ' ' + unit + ' cada 10 años') + (r.p < 0.05 && r.pmk < 0.05 ? '' : ' (no es seguro)') : 'pocos datos para una tendencia';
+      var words = r ? (Math.abs(r.b * 10) < 0.005 ? T('casi no cambia') : (r.b > 0 ? 'sube ' : 'baja ') + nf(Math.abs(r.b * 10), 2) + ' ' + unit + T(' cada 10 años')) + (r.p < 0.05 && r.pmk < 0.05 ? '' : T(' (no es seguro)')) : T('pocos datos para una tendencia');
       return '<div class="gk"><b style="color:' + s.color + '">' + esc(s.name) + '</b>' +
         '<span>' + xl(st, first[0]) + ': <b>' + nf(first[1], d) + '</b></span><span>' + xl(st, last[0]) + ': <b>' + nf(last[1], d) + '</b></span>' +
-        '<span>Máx: <b>' + nf(mx[1], d) + '</b> (' + xl(st, mx[0]) + ')</span><span>Mín: <b>' + nf(mn[1], d) + '</b> (' + xl(st, mn[0]) + ')</span>' +
-        '<span class="gtr">Tendencia: ' + words + '</span></div>';
+        T('<span>Máx: <b>') + nf(mx[1], d) + '</b> (' + xl(st, mx[0]) + T(')</span><span>Mín: <b>') + nf(mn[1], d) + '</b> (' + xl(st, mn[0]) + ')</span>' +
+        T('<span class="gtr">Tendencia: ') + words + '</span></div>';
     }).join('');
     return rows ? '<div class="gkeys">' + rows + '</div>' : '';
   }
 
-  var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  var MESL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var MES = window.LANG === 'en' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  var MESL = window.LANG === 'en' ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] : ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   function dateLabel(x, st) {
-    if (!st.frac || st.X.band || x % 1 === 0.5) return String(Math.floor(x)) + (st.X.band && st.frac ? ' (promedio del año)' : '');
+    if (!st.frac || st.X.band || x % 1 === 0.5) return String(Math.floor(x)) + (st.X.band && st.frac ? T(' (promedio del año)') : '');
     var y = Math.floor(x), m = Math.min(11, Math.floor((x - y) * 12 + 1e-6));
     return (st.X.band === undefined && st.long ? MESL : MES)[m] + ' ' + y;
   }
@@ -245,7 +245,7 @@
     cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
     dots.innerHTML = dh;
     var d = Math.abs(rows[0][1]) < 1 ? 3 : 2;
-    var diff = rows.length === 2 ? '<div class="gtd">Diferencia: <b>' + sf(rows[0][1] - rows[1][1], 2) + ' ' + esc(unit) + '</b></div>' : '';
+    var diff = rows.length === 2 ? T('<div class="gtd">Diferencia: <b>') + sf(rows[0][1] - rows[1][1], 2) + ' ' + esc(unit) + '</b></div>' : '';
     tip.innerHTML = '<div class="gty">' + dateLabel(xr, st) + '</div>' + rows.map(function (r) { return '<div><i style="background:' + r[0].color + '"></i>' + esc(r[0].name) + ': <b>' + nf(r[1], d) + ' ' + esc(unit) + '</b></div>'; }).join('') + diff;
     tip.hidden = false;
     var fr = fig.getBoundingClientRect(), x = e.clientX - fr.left + 12, y = e.clientY - fr.top + 12;

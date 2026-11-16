@@ -12,7 +12,7 @@
   var prevLayer = null, lastPack = null;
 
   /* ---------- capa del globo: cambio entre dos años ---------- */
-  DT.LAYERS.cmp = { q: '¿Qué cambió entre dos años?', hint: ['🔵 se enfrió', '🔴 se calentó'], name: 'Cambio entre años', title: 'Cambio de la temperatura del mar entre dos años', desc: 'Rojo: el mar estaba más caliente en el año final. Azul: más frío.', unit: '°C de diferencia', src: 'NOAA ERSSTv5 · diferencia entre los dos años elegidos', range: [1970, 2021] };
+  DT.LAYERS.cmp = { q: T('¿Qué cambió entre dos años?'), hint: [T('🔵 se enfrió'), T('🔴 se calentó')], name: T('Cambio entre años'), title: T('Cambio de la temperatura del mar entre dos años'), desc: T('Rojo: el mar estaba más caliente en el año final. Azul: más frío.'), unit: T('°C de diferencia'), src: T('NOAA ERSSTv5 · diferencia entre los dos años elegidos'), range: [1970, 2021] };
   DT.LINKS.cmp = DT.LINKS.sst;
   DT.scales.cmp = d3.scaleDiverging(function (t) { return d3.interpolateRdBu(1 - t); }).domain([-2, 0, 2]);
   function yv(y, k) {
@@ -27,7 +27,7 @@
     for (var x = 0; x < cv.width; x++) { c2.fillStyle = sc(dom[0] + (dom[2] - dom[0]) * x / (cv.width - 1)); c2.fillRect(x, 0, 1, cv.height); }
     $('#legTicks').innerHTML = '<span>' + sfmt(dom[0], 1) + '</span><span>0</span><span>' + sfmt(dom[2], 1) + '</span>';
     var r = yearsOcean();
-    $('#legUnit').textContent = '°C · ' + r[1] + ' menos ' + r[0] + ' (mar, NOAA ERSSTv5)';
+    $('#legUnit').textContent = '°C · ' + r[1] + T(' menos ') + r[0] + T(' (mar, NOAA ERSSTv5)');
   };
   function yearsOcean() {
     var lo = DT.Y0, hi = DT.Y0 + DT.NY - 1;
@@ -97,39 +97,39 @@
     var F = [], src;
     var gap = R.req && (R.req[0] !== Math.min(R.a, R.b) || R.req[1] !== Math.max(R.a, R.b));
     if (R.scope === 'oceanos') {
-      src = 'NOAA ERSSTv5 (1970–2021), promedio anual por área';
-      F.push({ t: 'obs', title: 'El océano ' + (R.d >= 0 ? 'se calentó ' : 'se enfrió ') + fmt(Math.abs(R.d), 2) + ' °C', text: 'Comparando ' + R.a + ' con ' + R.b + ', la temperatura media de la superficie de los océanos pasó de ' + fmt(R.A, 2) + ' °C a ' + fmt(R.B, 2) + ' °C.', vals: [['Diferencia', sfmt(R.d, 2) + ' °C'], ['Superficie más cálida', fmt(R.pUp * 100, 0) + ' %']], src: src });
+      src = T('NOAA ERSSTv5 (1970–2021), promedio anual por área');
+      F.push({ t: 'obs', title: T('El océano ') + (R.d >= 0 ? T('se calentó ') : T('se enfrió ')) + fmt(Math.abs(R.d), 2) + ' °C', text: T('Comparando ') + R.a + T(' con ') + R.b + T(', la temperatura media de la superficie de los océanos pasó de ') + fmt(R.A, 2) + T(' °C a ') + fmt(R.B, 2) + ' °C.', vals: [[T('Diferencia'), sfmt(R.d, 2) + ' °C'], [T('Superficie más cálida'), fmt(R.pUp * 100, 0) + ' %']], src: src });
       var top = R.regs[0], bot = R.regs[R.regs.length - 1];
-      F.push({ t: 'obs', title: 'Donde más cambió: ' + top.name, text: top.name + ' cambió ' + sfmt(top.d, 2) + ' °C; ' + bot.name + ' es la región con el cambio ' + (bot.d < 0 ? 'más frío (' : 'más pequeño (') + sfmt(bot.d, 2) + ' °C).', vals: [[top.name, sfmt(top.d, 2) + ' °C'], [bot.name, sfmt(bot.d, 2) + ' °C']], src: src });
-      F.push({ t: 'obs', title: 'Áreas con anomalía mayor a +1 °C', text: 'En ' + R.a + ' el ' + fmt(R.hotA * 100, 1) + ' % del océano estaba más de 1 °C por encima de su promedio 1971–2000; en ' + R.b + ', el ' + fmt(R.hotB * 100, 1) + ' %.', vals: [[String(R.a), fmt(R.hotA * 100, 1) + ' %'], [String(R.b), fmt(R.hotB * 100, 1) + ' %']], src: src });
-      if (R.res) F.push(trendFinding(R.res, 'La temperatura media del océano', R.a + '–' + R.b, src));
+      F.push({ t: 'obs', title: T('Donde más cambió: ') + top.name, text: top.name + T(' cambió ') + sfmt(top.d, 2) + ' °C; ' + bot.name + T(' es la región con el cambio ') + (bot.d < 0 ? T('más frío (') : T('más pequeño (')) + sfmt(bot.d, 2) + ' °C).', vals: [[top.name, sfmt(top.d, 2) + ' °C'], [bot.name, sfmt(bot.d, 2) + ' °C']], src: src });
+      F.push({ t: 'obs', title: T('Áreas con anomalía mayor a +1 °C'), text: T('En ') + R.a + T(' el ') + fmt(R.hotA * 100, 1) + T(' % del océano estaba más de 1 °C por encima de su promedio 1971–2000; en ') + R.b + T(', el ') + fmt(R.hotB * 100, 1) + ' %.', vals: [[String(R.a), fmt(R.hotA * 100, 1) + ' %'], [String(R.b), fmt(R.hotB * 100, 1) + ' %']], src: src });
+      if (R.res) F.push(trendFinding(R.res, T('La temperatura media del océano'), R.a + '–' + R.b, src));
     } else if (R.scope === 'colombia') {
-      src = M.dep.data.fuente;
+      src = T(M.dep.data.fuente);
       var t = R.regs[0], l = R.regs[R.regs.length - 1];
-      F.push({ t: 'obs', title: R.nUp + ' de ' + R.regs.length + ' departamentos están más cálidos', text: 'En promedio, el aire de los departamentos cambió ' + sfmt(R.meanD, 2) + ' °C entre ' + R.a + ' y ' + R.b + '.', vals: [['Cambio promedio', sfmt(R.meanD, 2) + ' °C'], ['Tendencia significativa al alza', R.nSig + ' departamentos']], src: src });
-      F.push({ t: 'obs', title: 'Mayor cambio: ' + t.name, text: t.name + ' pasó de ' + fmt(t.A, 1) + ' a ' + fmt(t.B, 1) + ' °C (' + sfmt(t.d, 2) + '). El menor cambio fue en ' + l.name + ' (' + sfmt(l.d, 2) + ' °C).', vals: [[t.name, sfmt(t.d, 2) + ' °C'], [l.name, sfmt(l.d, 2) + ' °C']], src: src });
+      F.push({ t: 'obs', title: R.nUp + T(' de ') + R.regs.length + T(' departamentos están más cálidos'), text: T('En promedio, el aire de los departamentos cambió ') + sfmt(R.meanD, 2) + T(' °C entre ') + R.a + T(' y ') + R.b + '.', vals: [[T('Cambio promedio'), sfmt(R.meanD, 2) + ' °C'], [T('Tendencia significativa al alza'), R.nSig + T(' departamentos')]], src: src });
+      F.push({ t: 'obs', title: T('Mayor cambio: ') + t.name, text: t.name + T(' pasó de ') + fmt(t.A, 1) + ' a ' + fmt(t.B, 1) + ' °C (' + sfmt(t.d, 2) + T('). El menor cambio fue en ') + l.name + ' (' + sfmt(l.d, 2) + ' °C).', vals: [[t.name, sfmt(t.d, 2) + ' °C'], [l.name, sfmt(l.d, 2) + ' °C']], src: src });
     } else {
-      src = 'NASA GISTEMP v4 (anomalía frente a 1951–1980)';
-      F.push({ t: 'obs', title: 'El planeta ' + (R.d >= 0 ? 'está ' + fmt(R.d, 2) + ' °C más cálido' : 'está ' + fmt(-R.d, 2) + ' °C más frío'), text: 'La anomalía global pasó de ' + sfmt(R.A, 2) + ' °C en ' + R.a + ' a ' + sfmt(R.B, 2) + ' °C en ' + R.b + '.', vals: [['Diferencia', sfmt(R.d, 2) + ' °C'], ['Año más cálido del periodo', R.warm ? R.warm[0] + ' (' + sfmt(R.warm[1], 2) + ' °C)' : '—']], src: src });
-      if (R.bestDec) F.push({ t: 'obs', title: 'Década de mayor subida: ' + R.bestDec[0] + '–' + (R.bestDec[0] + 9), text: 'En esos 10 años la temperatura global subió a un ritmo de ' + sfmt(R.bestDec[1] * 10, 2) + ' °C por década, el más rápido dentro del periodo elegido.', vals: [['Ritmo', sfmt(R.bestDec[1] * 10, 2) + ' °C/déc.']], src: src });
-      if (R.res) F.push(trendFinding(R.res, 'La temperatura global', R.a + '–' + R.b, src));
+      src = T('NASA GISTEMP v4 (anomalía frente a 1951–1980)');
+      F.push({ t: 'obs', title: T('El planeta ') + (R.d >= 0 ? T('está ') + fmt(R.d, 2) + T(' °C más cálido') : T('está ') + fmt(-R.d, 2) + T(' °C más frío')), text: T('La anomalía global pasó de ') + sfmt(R.A, 2) + T(' °C en ') + R.a + ' a ' + sfmt(R.B, 2) + T(' °C en ') + R.b + '.', vals: [[T('Diferencia'), sfmt(R.d, 2) + ' °C'], [T('Año más cálido del periodo'), R.warm ? R.warm[0] + ' (' + sfmt(R.warm[1], 2) + ' °C)' : '—']], src: src });
+      if (R.bestDec) F.push({ t: 'obs', title: T('Década de mayor subida: ') + R.bestDec[0] + '–' + (R.bestDec[0] + 9), text: T('En esos 10 años la temperatura global subió a un ritmo de ') + sfmt(R.bestDec[1] * 10, 2) + T(' °C por década, el más rápido dentro del periodo elegido.'), vals: [[T('Ritmo'), sfmt(R.bestDec[1] * 10, 2) + T(' °C/déc.')]], src: src });
+      if (R.res) F.push(trendFinding(R.res, T('La temperatura global'), R.a + '–' + R.b, src));
     }
     var ev = eventsIn(R.a, R.b);
-    if (ev.length && R.scope !== 'colombia') F.push({ t: 'ctx', title: 'Contexto de esos años', text: ev.map(function (e) { return e.y + ': ' + e.t; }).join(' · ') + '. Un año suelto puede verse más caliente o más frío por estos fenómenos; por eso conviene mirar también la tendencia de todo el periodo.', vals: [], src: 'Eventos registrados en la línea de tiempo de la app' });
-    if (gap) F.push({ t: 'gap', title: 'Ajusté el periodo a los datos disponibles', text: 'Pediste ' + Math.min(R.req[0], R.req[1]) + '–' + Math.max(R.req[0], R.req[1]) + ', pero esta fuente solo tiene datos para ' + R.a + '–' + R.b + '. No se rellenaron los años que faltan.', vals: [], src: '' });
-    if (S.cmp.smooth) F.push({ t: 'gap', title: 'Promedio de 3 años', text: 'Cada año se calculó como el promedio de ese año con el anterior y el siguiente, para reducir el efecto de un año extremo.', vals: [], src: '' });
+    if (ev.length && R.scope !== 'colombia') F.push({ t: 'ctx', title: T('Contexto de esos años'), text: ev.map(function (e) { return e.y + ': ' + e.t; }).join(' · ') + T('. Un año suelto puede verse más caliente o más frío por estos fenómenos; por eso conviene mirar también la tendencia de todo el periodo.'), vals: [], src: T('Eventos registrados en la línea de tiempo de la app') });
+    if (gap) F.push({ t: 'gap', title: T('Ajusté el periodo a los datos disponibles'), text: T('Pediste ') + Math.min(R.req[0], R.req[1]) + '–' + Math.max(R.req[0], R.req[1]) + T(', pero esta fuente solo tiene datos para ') + R.a + '–' + R.b + T('. No se rellenaron los años que faltan.'), vals: [], src: '' });
+    if (S.cmp.smooth) F.push({ t: 'gap', title: T('Promedio de 3 años'), text: T('Cada año se calculó como el promedio de ese año con el anterior y el siguiente, para reducir el efecto de un año extremo.'), vals: [], src: '' });
     return F;
   }
   function trendFinding(res, subject, per, src) {
     var sig = res.p < 0.05 && res.pmk < 0.05;
-    return { t: sig ? 'obs' : 'int', title: sig ? 'Tendencia ' + (res.b > 0 ? 'al alza' : 'a la baja') + ' significativa' : 'Sin tendencia clara', text: sig ? subject + ' cambió ' + sfmt(res.b * 10, 2) + ' °C por década entre ' + per + ' y las dos pruebas estadísticas coinciden (p < 0,05).' : 'Entre ' + per + ' las pruebas no muestran una tendencia lineal clara (puede ser variabilidad natural o un periodo corto).', vals: [['Ritmo', sfmt(res.b * 10, 2) + ' °C/déc.'], ['p (regresión / Mann-Kendall)', DT.pfmt(res.p) + ' / ' + DT.pfmt(res.pmk)]], src: src };
+    return { t: sig ? 'obs' : 'int', title: sig ? T('Tendencia ') + (res.b > 0 ? T('al alza') : T('a la baja')) + T(' significativa') : T('Sin tendencia clara'), text: sig ? subject + T(' cambió ') + sfmt(res.b * 10, 2) + T(' °C por década entre ') + per + T(' y las dos pruebas estadísticas coinciden (p < 0,05).') : T('Entre ') + per + T(' las pruebas no muestran una tendencia lineal clara (puede ser variabilidad natural o un periodo corto).'), vals: [[T('Ritmo'), sfmt(res.b * 10, 2) + T(' °C/déc.')], [T('p (regresión / Mann-Kendall)'), DT.pfmt(res.p) + ' / ' + DT.pfmt(res.pmk)]], src: src };
   }
-  var TAG = { obs: ['Dato observado', '#14532d', '#bbf7d0'], int: ['Interpretación', '#1e3a8a', '#bfdbfe'], ctx: ['Posible explicación', '#713f12', '#fde68a'], gap: ['Limitación', '#3f3f46', '#e4e4e7'] };
+  var TAG = { obs: [T('Dato observado'), '#14532d', '#bbf7d0'], int: [T('Interpretación'), '#1e3a8a', '#bfdbfe'], ctx: [T('Posible explicación'), '#713f12', '#fde68a'], gap: [T('Limitación'), '#3f3f46', '#e4e4e7'] };
   M.findingHTML = function (f) {
     var tg = TAG[f.t] || TAG.obs;
     return '<div class="finding"><div class="row" style="justify-content:space-between;gap:6px"><b>' + esc(f.title) + '</b><span class="tag" style="background:' + tg[1] + ';color:' + tg[2] + '">' + tg[0] + '</span></div>' +
       '<p>' + esc(f.text) + '</p>' + (f.vals && f.vals.length ? '<div class="fvals">' + f.vals.map(function (v) { return '<span><small>' + esc(v[0]) + '</small>' + esc(v[1]) + '</span>'; }).join('') + '</div>' : '') +
-      (f.src ? '<div class="src">Fuente: ' + esc(f.src) + '</div>' : '') + '</div>';
+      (f.src ? T('<div class="src">Fuente: ') + esc(f.src) + '</div>' : '') + '</div>';
   };
 
   /* ---------- interfaz ---------- */
@@ -140,22 +140,22 @@
     var s = M.series('planeta'); return [s.xs[0], M.lastYear(s)];
   }
   function header() {
-    return '<div class="seg cmp-tabs" role="tablist"><button data-ct="tiempo" aria-pressed="' + (S.cmp.tab === 'tiempo') + '">⏱ Entre años</button><button data-ct="regiones" aria-pressed="' + (S.cmp.tab === 'regiones') + '">⇄ Entre regiones</button></div>';
+    return '<div class="seg cmp-tabs" role="tablist"><button data-ct="tiempo" aria-pressed="' + (S.cmp.tab === 'tiempo') + T('">⏱ Entre años</button><button data-ct="regiones" aria-pressed="') + (S.cmp.tab === 'regiones') + T('">⇄ Entre regiones</button></div>');
   }
   function renderTiempo() {
     var r = scopeRange();
     var html = header() +
-      '<div class="cmp-form"><label>Qué comparar<select id="cScope">' +
-      '<option value="colombia"' + (S.cmp.scope === 'colombia' ? ' selected' : '') + '>Departamentos de Colombia · temperatura del aire</option>' +
-      '<option value="oceanos"' + (S.cmp.scope === 'oceanos' ? ' selected' : '') + '>Mar · temperatura del agua (mapa de cambio)</option></select></label>' +
-      '<div class="row" style="gap:6px;flex-wrap:nowrap"><label>Año inicial<select id="cA">' + yearOpts(r[0], r[1], clamp(S.cmp.a, r[0], r[1])) + '</select></label><span style="padding-top:16px">→</span><label>Año final<select id="cB">' + yearOpts(r[0], r[1], clamp(S.cmp.b, r[0], r[1])) + '</select></label></div>' +
-      '<label class="chkl"><input type="checkbox" id="cSmooth"' + (S.cmp.smooth ? ' checked' : '') + '> Usar promedio de 3 años (reduce el efecto de un año extremo)</label></div>';
+      T('<div class="cmp-form"><label>Qué comparar<select id="cScope">') +
+      '<option value="colombia"' + (S.cmp.scope === 'colombia' ? ' selected' : '') + T('>Departamentos de Colombia · temperatura del aire</option>') +
+      '<option value="oceanos"' + (S.cmp.scope === 'oceanos' ? ' selected' : '') + T('>Mar · temperatura del agua (mapa de cambio)</option></select></label>') +
+      T('<div class="row" style="gap:6px;flex-wrap:nowrap"><label>Año inicial<select id="cA">') + yearOpts(r[0], r[1], clamp(S.cmp.a, r[0], r[1])) + T('</select></label><span style="padding-top:16px">→</span><label>Año final<select id="cB">') + yearOpts(r[0], r[1], clamp(S.cmp.b, r[0], r[1])) + '</select></label></div>' +
+      '<label class="chkl"><input type="checkbox" id="cSmooth"' + (S.cmp.smooth ? ' checked' : '') + T('> Usar promedio de 3 años (reduce el efecto de un año extremo)</label></div>');
     var R;
     if (S.cmp.scope === 'oceanos') R = analyzeOceans();
     else if (S.cmp.scope === 'colombia') R = analyzeColombia();
     else R = analyzePlanet();
     if (R.missing) {
-      html += '<div class="note">Aún no están los datos de temperatura del aire por departamento. Se generan con <b>npm run departamentos</b> en la carpeta del proyecto (NASA POWER, unos minutos) y aparecen aquí solos. No se muestran valores inventados.</div>';
+      html += T('<div class="note">Aún no están los datos de temperatura del aire por departamento. Se generan con <b>npm run departamentos</b> en la carpeta del proyecto (NASA POWER, unos minutos) y aparecen aquí solos. No se muestran valores inventados.</div>');
       lastPack = null;
       return html;
     }
@@ -163,29 +163,29 @@
     lastPack = { tipo: 'comparacion_entre_años', alcance: S.cmp.scope, años: [R.a, R.b], hallazgos: F.map(function (f) { return { tipo: f.t, titulo: f.title, texto: f.text, valores: f.vals, fuente: f.src }; }) };
     // nivel 1: tarjetas
     if (R.scope === 'oceanos') {
-      html += '<div class="mcards">' + M.card(String(R.a), fmt(R.A, 2) + ' °C', 'océano promedio') + M.card(String(R.b), fmt(R.B, 2) + ' °C', 'océano promedio') + M.card('Cambio', sfmt(R.d, 2) + ' °C', fmt(R.pUp * 100, 0) + ' % más cálido', R.d > 0 ? '#ff7a59' : '#5cb7ff') + '</div>';
+      html += '<div class="mcards">' + M.card(String(R.a), fmt(R.A, 2) + ' °C', T('océano promedio')) + M.card(String(R.b), fmt(R.B, 2) + ' °C', T('océano promedio')) + M.card(T('Cambio'), sfmt(R.d, 2) + ' °C', fmt(R.pUp * 100, 0) + T(' % más cálido'), R.d > 0 ? '#ff7a59' : '#5cb7ff') + '</div>';
       var topReg = R.regs[0].name;
-      html += '<div class="chart">' + M.multiChart([R.series, M.series('oc:' + topReg)].map(function (s, i) { var sl = M.slice(s, R.a, R.b); return { xs: s.xs, ys: s.ys, res: DT.analyze(sl.xs, sl.ys), name: s.name }; }), { marks: [R.a, R.b], band: [R.a, R.b], aria: 'Temperatura media del océano y de ' + topReg }) + '</div>' +
-        '<div class="leg"><span style="color:' + M.COLORS[0] + '">━ Todos los océanos</span><span style="color:' + M.COLORS[1] + '">━ ' + esc(topReg) + ' (mayor cambio)</span></div>' +
-        '<div class="lbl">Cambio por región ' + R.a + '→' + R.b + '</div><div class="chart">' + M.barChart(R.regs.map(function (g) { return [g.name.replace('Océano ', ''), g.d]; }), { unit: ' °C', aria: 'Cambio por región oceánica' }) + '</div>';
+      html += '<div class="chart">' + M.multiChart([R.series, M.series('oc:' + topReg)].map(function (s, i) { var sl = M.slice(s, R.a, R.b); return { xs: s.xs, ys: s.ys, res: DT.analyze(sl.xs, sl.ys), name: s.name }; }), { marks: [R.a, R.b], band: [R.a, R.b], aria: T('Temperatura media del océano y de ') + topReg }) + '</div>' +
+        '<div class="leg"><span style="color:' + M.COLORS[0] + T('">━ Todos los océanos</span><span style="color:') + M.COLORS[1] + '">━ ' + esc(topReg) + T(' (mayor cambio)</span></div>') +
+        T('<div class="lbl">Cambio por región ') + R.a + '→' + R.b + '</div><div class="chart">' + M.barChart(R.regs.map(function (g) { return [g.name.replace('Océano ', ''), g.d]; }), { unit: ' °C', aria: T('Cambio por región oceánica') }) + '</div>';
     } else if (R.scope === 'colombia') {
-      html += '<div class="mcards">' + M.card('Cambio promedio', sfmt(R.meanD, 2) + ' °C', R.a + ' → ' + R.b, R.meanD > 0 ? '#ff7a59' : '#5cb7ff') + M.card('Más cálidos', R.nUp + ' / ' + R.regs.length, 'departamentos') + M.card('Al alza significativa', String(R.nSig), 'departamentos') + '</div>' +
-        '<div class="lbl">Cambio por departamento' + (R.regs.length > 12 ? ' · los 8 mayores y los 4 menores' : '') + '</div><div class="chart">' + M.barChart((R.regs.length > 12 ? R.regs.slice(0, 8).concat(R.regs.slice(-4)) : R.regs).map(function (g) { return [g.name, g.d]; }), { unit: ' °C', aria: 'Cambio por departamento' }) + '</div>' +
-        '<div class="src">El mapa colorea cada departamento según su cambio.</div>';
+      html += '<div class="mcards">' + M.card(T('Cambio promedio'), sfmt(R.meanD, 2) + ' °C', R.a + ' → ' + R.b, R.meanD > 0 ? '#ff7a59' : '#5cb7ff') + M.card(T('Más cálidos'), R.nUp + ' / ' + R.regs.length, 'departamentos') + M.card(T('Al alza significativa'), String(R.nSig), 'departamentos') + '</div>' +
+        T('<div class="lbl">Cambio por departamento') + (R.regs.length > 12 ? T(' · los 8 mayores y los 4 menores') : '') + '</div><div class="chart">' + M.barChart((R.regs.length > 12 ? R.regs.slice(0, 8).concat(R.regs.slice(-4)) : R.regs).map(function (g) { return [g.name, g.d]; }), { unit: ' °C', aria: T('Cambio por departamento') }) + '</div>' +
+        T('<div class="src">El mapa colorea cada departamento según su cambio.</div>');
     } else {
-      html += '<div class="mcards">' + M.card(String(R.a), sfmt(R.A, 2) + ' °C', 'anomalía global') + M.card(String(R.b), sfmt(R.B, 2) + ' °C', 'anomalía global') + M.card('Cambio', sfmt(R.d, 2) + ' °C', '', R.d > 0 ? '#ff7a59' : '#5cb7ff') + '</div>' +
-        '<div class="chart">' + M.multiChart([{ xs: R.series.xs, ys: R.series.ys, res: R.res }], { marks: [R.a, R.b], band: [R.a, R.b], aria: 'Temperatura global' }) + '</div>';
+      html += '<div class="mcards">' + M.card(String(R.a), sfmt(R.A, 2) + ' °C', T('anomalía global')) + M.card(String(R.b), sfmt(R.B, 2) + ' °C', T('anomalía global')) + M.card(T('Cambio'), sfmt(R.d, 2) + ' °C', '', R.d > 0 ? '#ff7a59' : '#5cb7ff') + '</div>' +
+        '<div class="chart">' + M.multiChart([{ xs: R.series.xs, ys: R.series.ys, res: R.res }], { marks: [R.a, R.b], band: [R.a, R.b], aria: T('Temperatura global') }) + '</div>';
     }
     // resumen del analista
-    html += '<div class="lbl" style="margin-top:4px">Resumen del analista</div>' + F.slice(0, 2).map(M.findingHTML).join('') +
-      '<details class="more"><summary>Ver todos los hallazgos (' + F.length + ')</summary>' + F.slice(2).map(M.findingHTML).join('') + '</details>';
+    html += T('<div class="lbl" style="margin-top:4px">Resumen del analista</div>') + F.slice(0, 2).map(M.findingHTML).join('') +
+      T('<details class="more"><summary>Ver todos los hallazgos (') + F.length + ')</summary>' + F.slice(2).map(M.findingHTML).join('') + '</details>';
     return html;
   }
 
   function regionPicker(idx, key) {
     var groups = {};
     M.regions().forEach(function (r) { (groups[r.group] = groups[r.group] || []).push(r); });
-    return '<select data-ri="' + idx + '">' + (key ? '' : '<option value="">+ Agregar región…</option>') + Object.keys(groups).map(function (g) {
+    return '<select data-ri="' + idx + '">' + (key ? '' : T('<option value="">+ Agregar región…</option>')) + Object.keys(groups).map(function (g) {
       return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === key ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</optgroup>';
     }).join('') + '</select>';
   }
@@ -195,33 +195,33 @@
     if (ok.length < 2) return '';
     var hot = ok.slice().sort(function (x, y) { return y.mean - x.mean; }), A = ok[0], B = ok[1];
     var vals = ok.map(function (t) {
-      return '<div class="sbv" style="border-color:' + M.COLORS[t.i] + '"><span style="color:' + M.COLORS[t.i] + '">' + esc(t.s.name) + '</span><b>' + (t.s.anomaly ? sfmt(t.mean, 2) : fmt(t.mean, 1)) + ' °C</b><small>promedio ' + a + '–' + b + '</small></div>';
+      return '<div class="sbv" style="border-color:' + M.COLORS[t.i] + '"><span style="color:' + M.COLORS[t.i] + '">' + esc(t.s.name) + '</span><b>' + (t.s.anomaly ? sfmt(t.mean, 2) : fmt(t.mean, 1)) + T(' °C</b><small>promedio ') + a + '–' + b + '</small></div>';
     }).join('');
     var diff = A.mean - B.mean, words = [];
     if (!mixed) {
       var gap = hot[0].mean - hot[hot.length - 1].mean;
-      words.push(gap < 0.05 ? 'Tuvieron casi la misma temperatura media entre ' + a + ' y ' + b + '.' : '<b>' + esc(hot[0].s.name) + '</b> fue en promedio <b>' + fmt(gap, 1) + ' °C más ' + (hot[0].s.anomaly ? 'cálido frente a lo normal' : 'cálido') + '</b> que ' + esc(hot[hot.length - 1].s.name) + ' entre ' + a + ' y ' + b + '.');
+      words.push(gap < 0.05 ? T('Tuvieron casi la misma temperatura media entre ') + a + T(' y ') + b + '.' : '<b>' + esc(hot[0].s.name) + T('</b> fue en promedio <b>') + fmt(gap, 1) + T(' °C más ') + (hot[0].s.anomaly ? T('cálido frente a lo normal') : T('cálido')) + T('</b> que ') + esc(hot[hot.length - 1].s.name) + T(' entre ') + a + T(' y ') + b + '.');
     }
     var tr = ok.filter(function (t) { return t.res; }).sort(function (x, y) { return y.res.b - x.res.b; });
     if (tr.length >= 2) {
       var f = tr[0], s = tr[tr.length - 1], dd = (f.res.b - s.res.b) * 10;
-      words.push(Math.abs(dd) < 0.02 ? 'Las dos cambiaron a un ritmo muy parecido.' : esc(f.s.name) + ' ' + (f.res.b > 0 ? 'se calentó' : 'se enfrió') + ' más rápido: <b>' + sfmt(f.res.b * 10, 2) + ' °C</b> cada 10 años, frente a ' + sfmt(s.res.b * 10, 2) + ' °C en ' + esc(s.s.name) + '.');
+      words.push(Math.abs(dd) < 0.02 ? T('Las dos cambiaron a un ritmo muy parecido.') : esc(f.s.name) + ' ' + (f.res.b > 0 ? T('se calentó') : T('se enfrió')) + T(' más rápido: <b>') + sfmt(f.res.b * 10, 2) + T(' °C</b> cada 10 años, frente a ') + sfmt(s.res.b * 10, 2) + T(' °C en ') + esc(s.s.name) + '.');
     }
-    if (mixed) words.push('Una es mar y otra aire: compara cómo cambian, no sus valores.');
+    if (mixed) words.push(T('Una es mar y otra aire: compara cómo cambian, no sus valores.'));
     return '<div class="sumbox"><div class="sbvals">' + vals + '</div>' +
-      (ok.length === 2 && !mixed ? '<div class="sbdiff">Diferencia (' + esc(A.s.name) + ' − ' + esc(B.s.name) + '): <b>' + sfmt(diff, 2) + ' °C</b></div>' : '') +
-      '<div class="sbfind"><span>💡 Hallazgo principal</span>' + words.join(' ') + '</div></div>';
+      (ok.length === 2 && !mixed ? T('<div class="sbdiff">Diferencia (') + esc(A.s.name) + ' − ' + esc(B.s.name) + '): <b>' + sfmt(diff, 2) + ' °C</b></div>' : '') +
+      T('<div class="sbfind"><span>💡 Hallazgo principal</span>') + words.join(' ') + '</div></div>';
   }
   function renderRegiones() {
     var list = S.cmp.regs.map(M.series).filter(Boolean);
     var lo = d3.max(list, function (s) { return s.xs[0]; }) || 1981, hi = d3.min(list, function (s) { return M.lastYear(s); }) || 2021;
     if (!S.cmp.per) S.cmp.per = [lo, hi];
     var a = clamp(S.cmp.per[0], lo, hi), b = clamp(S.cmp.per[1], lo, hi); if (b - a < 5) { a = lo; b = hi; }
-    var html = header() + '<div class="cmp-form"><div class="lbl">Regiones (2 a 4)</div>' +
-      S.cmp.regs.map(function (k, i) { return '<div class="row rpick"><span class="dot" style="background:' + M.COLORS[i] + '"></span>' + regionPicker(i, k) + (S.cmp.regs.length > 2 ? '<button class="iconbtn" data-rdel="' + i + '" aria-label="Quitar">✕</button>' : '') + '</div>'; }).join('') +
+    var html = header() + T('<div class="cmp-form"><div class="lbl">Regiones (2 a 4)</div>') +
+      S.cmp.regs.map(function (k, i) { return '<div class="row rpick"><span class="dot" style="background:' + M.COLORS[i] + '"></span>' + regionPicker(i, k) + (S.cmp.regs.length > 2 ? '<button class="iconbtn" data-rdel="' + i + T('" aria-label="Quitar">✕</button>') : '') + '</div>'; }).join('') +
       (S.cmp.regs.length < 4 ? '<div class="row rpick"><span class="dot"></span>' + regionPicker(S.cmp.regs.length, '') + '</div>' : '') +
-      '<div class="row" style="gap:6px;flex-wrap:nowrap"><label>Desde<select id="rA">' + yearOpts(lo, hi, a) + '</select></label><label>Hasta<select id="rB">' + yearOpts(lo, hi, b) + '</select></label></div></div>';
-    if (list.length < 2) { lastPack = null; return html + '<div class="note">Elige al menos dos regiones con datos.' + (M.dep.status !== 'ok' ? ' Los departamentos aparecen cuando se generen sus datos (npm run departamentos).' : '') + '</div>'; }
+      T('<div class="row" style="gap:6px;flex-wrap:nowrap"><label>Desde<select id="rA">') + yearOpts(lo, hi, a) + T('</select></label><label>Hasta<select id="rB">') + yearOpts(lo, hi, b) + '</select></label></div></div>';
+    if (list.length < 2) { lastPack = null; return html + T('<div class="note">Elige al menos dos regiones con datos.') + (M.dep.status !== 'ok' ? T(' Los departamentos aparecen cuando se generen sus datos (npm run departamentos).') : '') + '</div>'; }
     var kinds = {}; list.forEach(function (s) { kinds[s.kind] = 1; });
     var mixed = Object.keys(kinds).length > 1;
     var stats = list.map(function (s, i) {
@@ -229,37 +229,37 @@
       return { s: s, i: i, res: res, last: last, mean: mean, anom: M.anomaly(s, b), change: res ? res.sen * (b - a) : null };
     });
     html += summaryBox(stats, a, b, mixed) +
-      '<div class="chart">' + M.multiChart(stats.map(function (t) { return { xs: t.s.xs, ys: t.s.ys, res: t.res, name: t.s.name, color: M.COLORS[t.i] }; }), { x: [a, b], aria: 'Comparación de regiones', title: mixed ? 'Temperatura de cada región' : 'Temperatura media anual', varName: list[0].anomaly ? 'Diferencia con lo normal' : mixed ? 'Temperatura (mar y aire)' : list[0].kind === 'mar' ? 'Temperatura del mar' : 'Temperatura del aire a 2 m', unit: '°C' }) + '</div>' +
-      '<details class="more"><summary>Ver estadísticas detalladas</summary><div class="rcards">' + stats.map(function (t) {
+      '<div class="chart">' + M.multiChart(stats.map(function (t) { return { xs: t.s.xs, ys: t.s.ys, res: t.res, name: t.s.name, color: M.COLORS[t.i] }; }), { x: [a, b], aria: T('Comparación de regiones'), title: mixed ? T('Temperatura de cada región') : T('Temperatura media anual'), varName: list[0].anomaly ? T('Diferencia con lo normal') : mixed ? T('Temperatura (mar y aire)') : list[0].kind === 'mar' ? T('Temperatura del mar') : T('Temperatura del aire a 2 m'), unit: '°C' }) + '</div>' +
+      T('<details class="more"><summary>Ver estadísticas detalladas</summary><div class="rcards">') + stats.map(function (t) {
         var col = M.COLORS[t.i];
         return '<div class="rcard" style="border-color:' + col + '"><b style="color:' + col + '">' + esc(t.s.name) + '</b>' +
-          '<div class="r"><span>' + (t.s.anomaly ? 'Anomalía ' : 'Promedio ') + b + '</span><b>' + (t.last === null ? '—' : (t.s.anomaly ? sfmt(t.last, 2) : fmt(t.last, 1)) + ' °C') + '</b></div>' +
-          '<div class="r"><span>Tendencia</span><b>' + (t.res ? sfmt(t.res.b * 10, 2) + ' °C/déc.' : '—') + '</b></div>' +
-          '<div class="r"><span>Cambio ' + a + '–' + b + '</span><b>' + (t.change === null ? '—' : sfmt(t.change, 2) + ' °C') + '</b></div>' +
-          (t.s.anomaly ? '' : '<div class="r"><span>Anomalía ' + b + '</span><b>' + (t.anom === null ? '—' : sfmt(t.anom, 2) + ' °C') + '</b></div>') + M.sigIcon(t.res) + '<div class="src">' + esc(t.s.kind === 'mar' ? 'Mar' : t.s.kind === 'aire' ? 'Aire a 2 m' : 'Planeta') + '</div></div>';
+          '<div class="r"><span>' + (t.s.anomaly ? T('Anomalía ') : T('Promedio ')) + b + '</span><b>' + (t.last === null ? '—' : (t.s.anomaly ? sfmt(t.last, 2) : fmt(t.last, 1)) + ' °C') + '</b></div>' +
+          T('<div class="r"><span>Tendencia</span><b>') + (t.res ? sfmt(t.res.b * 10, 2) + T(' °C/déc.') : '—') + '</b></div>' +
+          T('<div class="r"><span>Cambio ') + a + '–' + b + '</span><b>' + (t.change === null ? '—' : sfmt(t.change, 2) + ' °C') + '</b></div>' +
+          (t.s.anomaly ? '' : T('<div class="r"><span>Anomalía ') + b + '</span><b>' + (t.anom === null ? '—' : sfmt(t.anom, 2) + ' °C') + '</b></div>') + M.sigIcon(t.res) + '<div class="src">' + esc(t.s.kind === 'mar' ? T('Mar') : t.s.kind === 'aire' ? T('Aire a 2 m') : T('Planeta')) + '</div></div>';
       }).join('') + '</div>';
     // diferencias clave automáticas
     var F = [], valid = stats.filter(function (t) { return t.res; }), src = list.map(function (s) { return s.src; }).filter(function (v, i, arr) { return arr.indexOf(v) === i; }).join(' · ');
     if (valid.length >= 2) {
       var fast = valid.slice().sort(function (x, y) { return y.res.b - x.res.b; });
       var tie = Math.abs(fast[0].res.b - fast[fast.length - 1].res.b) * 10 < 0.01;
-      F.push({ t: 'obs', title: tie ? 'Ritmo de cambio muy parecido' : fast[0].s.name + ' se calienta más rápido', text: fast[0].s.name + ' cambia ' + sfmt(fast[0].res.b * 10, 2) + ' °C por década, frente a ' + sfmt(fast[fast.length - 1].res.b * 10, 2) + ' °C en ' + fast[fast.length - 1].s.name + ' (' + a + '–' + b + ').', vals: fast.map(function (t) { return [t.s.name, sfmt(t.res.b * 10, 2) + ' °C/déc.']; }), src: src });
+      F.push({ t: 'obs', title: tie ? T('Ritmo de cambio muy parecido') : fast[0].s.name + T(' se calienta más rápido'), text: fast[0].s.name + T(' cambia ') + sfmt(fast[0].res.b * 10, 2) + T(' °C por década, frente a ') + sfmt(fast[fast.length - 1].res.b * 10, 2) + T(' °C en ') + fast[fast.length - 1].s.name + ' (' + a + '–' + b + ').', vals: fast.map(function (t) { return [t.s.name, sfmt(t.res.b * 10, 2) + T(' °C/déc.')]; }), src: src });
       if (!mixed && !list[0].anomaly) {
         var hot = stats.slice().sort(function (x, y) { return y.mean - x.mean; });
-        F.push({ t: 'obs', title: 'Diferencia de temperatura media: ' + fmt(hot[0].mean - hot[hot.length - 1].mean, 1) + ' °C', text: hot[0].s.name + ' promedió ' + fmt(hot[0].mean, 1) + ' °C y ' + hot[hot.length - 1].s.name + ' ' + fmt(hot[hot.length - 1].mean, 1) + ' °C entre ' + a + ' y ' + b + '.', vals: hot.map(function (t) { return [t.s.name, fmt(t.mean, 1) + ' °C']; }), src: src });
+        F.push({ t: 'obs', title: T('Diferencia de temperatura media: ') + fmt(hot[0].mean - hot[hot.length - 1].mean, 1) + ' °C', text: hot[0].s.name + T(' promedió ') + fmt(hot[0].mean, 1) + T(' °C y ') + hot[hot.length - 1].s.name + ' ' + fmt(hot[hot.length - 1].mean, 1) + T(' °C entre ') + a + T(' y ') + b + '.', vals: hot.map(function (t) { return [t.s.name, fmt(t.mean, 1) + ' °C']; }), src: src });
       }
       var sigs = valid.filter(function (t) { return t.res.p < 0.05 && t.res.pmk < 0.05; }).map(function (t) { return t.s.name; });
-      F.push({ t: sigs.length ? 'obs' : 'int', title: sigs.length ? 'Tendencia significativa en ' + sigs.length + ' de ' + valid.length : 'Ninguna tendencia es significativa', text: sigs.length ? 'Pasan las dos pruebas (p < 0,05): ' + sigs.join(', ') + '.' : 'En este periodo ninguna región muestra una tendencia que pase las dos pruebas.', vals: [], src: '' });
+      F.push({ t: sigs.length ? 'obs' : 'int', title: sigs.length ? T('Tendencia significativa en ') + sigs.length + T(' de ') + valid.length : T('Ninguna tendencia es significativa'), text: sigs.length ? T('Pasan las dos pruebas (p < 0,05): ') + sigs.join(', ') + '.' : T('En este periodo ninguna región muestra una tendencia que pase las dos pruebas.'), vals: [], src: '' });
     }
-    if (mixed) F.push({ t: 'gap', title: 'Ojo: variables distintas', text: 'Estás comparando temperatura del mar con temperatura del aire (o la anomalía global). Se pueden comparar sus tendencias, pero no sus valores absolutos.', vals: [], src: '' });
+    if (mixed) F.push({ t: 'gap', title: T('Ojo: variables distintas'), text: T('Estás comparando temperatura del mar con temperatura del aire (o la anomalía global). Se pueden comparar sus tendencias, pero no sus valores absolutos.'), vals: [], src: '' });
     lastPack = { tipo: 'comparacion_entre_regiones', periodo: [a, b], regiones: stats.map(function (t) { return { nombre: t.s.name, variable: t.s.kind, unidad: t.s.unit, promedio: t.mean, ultimo: t.last, tendencia_por_decada: t.res ? t.res.b * 10 : null, p_regresion: t.res ? t.res.p : null, p_mann_kendall: t.res ? t.res.pmk : null, fuente: t.s.src }; }), hallazgos: F.map(function (f) { return { tipo: f.t, titulo: f.title, texto: f.text, valores: f.vals }; }) };
-    html += '<div class="lbl">Diferencias más relevantes</div>' + F.map(M.findingHTML).join('') + '</details>';
+    html += T('<div class="lbl">Diferencias más relevantes</div>') + F.map(M.findingHTML).join('') + '</details>';
     return html;
   }
 
   function render() {
-    $('#aTitle').textContent = 'Comparar';
-    $('#aSub').textContent = S.cmp.tab === 'tiempo' ? 'Qué cambió entre dos años' : 'Dos o más regiones, mismo periodo';
+    $('#aTitle').textContent = T('Comparar');
+    $('#aSub').textContent = S.cmp.tab === 'tiempo' ? T('Qué cambió entre dos años') : T('Dos o más regiones, mismo periodo');
     var box = $('#analysis'); box.hidden = false; box.classList.add('wide');
     $('#aBody').innerHTML = S.cmp.tab === 'tiempo' ? renderTiempo() : renderRegiones();
     wire();
@@ -269,13 +269,13 @@
     if (S.cmp.tab === 'tiempo' && S.cmp.scope === 'oceanos') {
       if (DT.S.layer !== 'cmp') { prevLayer = prevLayer || DT.S.layer; DT.setLayer('cmp'); }
       updateScale(); DT.legend(); DT.recolor(); DT.renderTitles();
-      $('#layerDate').textContent = 'Diferencia ' + yearsOcean().join(' → ');
+      $('#layerDate').textContent = T('Diferencia ') + yearsOcean().join(' → ');
     } else if (DT.S.layer === 'cmp') { DT.setLayer(prevLayer || 'sst'); prevLayer = null; }
     if (S.cmp.tab === 'tiempo' && S.cmp.scope === 'colombia' && S.focus !== 'colombia') DT.setFocus('colombia');
     render(); DT.legend(); DT.requestDraw();
     var r = S.cmp.scope === 'oceanos' ? yearsOcean() : [Math.min(S.cmp.a, S.cmp.b), Math.max(S.cmp.a, S.cmp.b)];
-    $('#layerTitle').textContent = S.cmp.tab === 'tiempo' ? '¿Qué cambió entre ' + r[0] + ' y ' + r[1] + '?' : '¿En qué se diferencian estas regiones?';
-    if (S.cmp.scope === 'colombia' && S.cmp.tab === 'tiempo') $('#layerDate').textContent = 'Colombia · rojo: el aire se calentó · azul: se enfrió';
+    $('#layerTitle').textContent = S.cmp.tab === 'tiempo' ? T('¿Qué cambió entre ') + r[0] + T(' y ') + r[1] + '?' : T('¿En qué se diferencian estas regiones?');
+    if (S.cmp.scope === 'colombia' && S.cmp.tab === 'tiempo') $('#layerDate').textContent = T('Colombia · rojo: el aire se calentó · azul: se enfrió');
   }
   function wire() {
     var q = function (s) { return $('#aBody').querySelector(s); };
@@ -305,9 +305,9 @@
     var cv = $('#legBar'), c2 = cv.getContext('2d');
     for (var x = 0; x < cv.width; x++) { c2.fillStyle = sc(-mx + 2 * mx * x / (cv.width - 1)); c2.fillRect(x, 0, 1, cv.height); }
     $('#legTicks').innerHTML = '<span>' + sfmt(-mx, 1) + '</span><span>0</span><span>' + sfmt(mx, 1) + '</span>';
-    $('#legUnit').textContent = 'Cambio de temperatura del aire (°C) · ' + R.a + ' → ' + R.b;
+    $('#legUnit').textContent = T('Cambio de temperatura del aire (°C) · ') + R.a + ' → ' + R.b;
     $('#legMk') && ($('#legMk').style.display = 'none');
-    return ['🔵 se enfrió', '🔴 se calentó'];
+    return [T('🔵 se enfrió'), T('🔴 se calentó')];
   };
   DT.HOOKS.draw.push(function (ctx, path) {
     if (S.tool !== 'cmp' || S.cmp.tab !== 'tiempo' || S.cmp.scope !== 'colombia' || M.dep.status !== 'ok' || !M.dep.geo) return;

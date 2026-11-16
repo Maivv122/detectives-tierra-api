@@ -59,14 +59,14 @@
   M.regions = function () {
     // enfoque nacional: departamentos, zonas de estudio y los dos mares de Colombia
     var out = [];
-    if (M.dep.status === 'ok') M.depList().forEach(function (d) { out.push({ key: 'dep:' + d.id, name: d.name, group: 'Departamentos', kind: 'aire' }); });
+    if (M.dep.status === 'ok') M.depList().forEach(function (d) { out.push({ key: 'dep:' + d.id, name: d.name, group: T('Departamentos'), kind: 'aire' }); });
     DT.ZONES.forEach(function (z) {
       if (z.id === 'caribe') {
-        out.push({ key: 'zona:caribe:sanandres', name: 'San Andrés (aire)', group: 'Zonas de estudio', kind: 'aire' });
-        out.push({ key: 'zona:caribe:caribe', name: 'Ciénaga Grande (aire)', group: 'Zonas de estudio', kind: 'aire' });
-      } else out.push({ key: 'zona:' + z.id, name: z.short, group: 'Zonas de estudio', kind: 'aire' });
+        out.push({ key: 'zona:caribe:sanandres', name: T('San Andrés (aire)'), group: T('Zonas de estudio'), kind: 'aire' });
+        out.push({ key: 'zona:caribe:caribe', name: T('Ciénaga Grande (aire)'), group: T('Zonas de estudio'), kind: 'aire' });
+      } else out.push({ key: 'zona:' + z.id, name: z.short, group: T('Zonas de estudio'), kind: 'aire' });
     });
-    [['Mar Caribe', 'Mar Caribe'], ['Océano Pacífico Norte', 'Océano Pacífico (norte)']].forEach(function (o) { out.push({ key: 'oc:' + o[0], name: o[1], group: 'Mares de Colombia', kind: 'mar' }); });
+    [['Mar Caribe', T('Mar Caribe')], ['Océano Pacífico Norte', T('Océano Pacífico (norte)')]].forEach(function (o) { out.push({ key: 'oc:' + o[0], name: o[1], group: T('Mares de Colombia'), kind: 'mar' }); });
     return out;
   };
   M.regionName = function (key) { var r = M.regions().filter(function (x) { return x.key === key; })[0]; return r ? r.name : key; };
@@ -75,27 +75,27 @@
   M.series = function (key) {
     if (key === 'planeta') {
       var g = DT.gistemp || [];
-      return { key: key, name: 'Planeta (tierra + mar)', kind: 'global', unit: '°C frente a 1951–1980', anomaly: true, xs: g.map(function (d) { return d[0]; }), ys: g.map(function (d) { return d[1]; }), src: 'NASA GISTEMP v4', measured: true };
+      return { key: key, name: T('Planeta (tierra + mar)'), kind: 'global', unit: T('°C frente a 1951–1980'), anomaly: true, xs: g.map(function (d) { return d[0]; }), ys: g.map(function (d) { return d[1]; }), src: 'NASA GISTEMP v4', measured: true };
     }
     if (key.indexOf('oc:') === 0) {
       var oc = M.oceanCells(); if (!oc) return null;
       var list = oc[key.slice(3)]; if (!list || !list.length) return null;
       var xs = [], ys = [];
       for (var y = DT.Y0; y < DT.Y0 + DT.NY; y++) { xs.push(y); ys.push(M.oceanMean(list, y, false)); }
-      return { key: key, name: key.slice(3), kind: 'mar', unit: '°C', xs: xs, ys: ys, src: 'NOAA ERSSTv5 · temperatura superficial del mar, promedio anual por área', measured: true, cells: list.length };
+      return { key: key, name: T(key.slice(3)), kind: 'mar', unit: '°C', xs: xs, ys: ys, src: T('NOAA ERSSTv5 · temperatura superficial del mar, promedio anual por área'), measured: true, cells: list.length };
     }
     if (key.indexOf('dep:') === 0) {
       var d = M.dep.byId[key.slice(4)];
       if (!d || !d.temp || !Object.keys(d.temp).length) return null;
       var ks = Object.keys(d.temp).map(Number).sort(function (a, b) { return a - b; });
-      return { key: key, name: d.name, kind: 'aire', unit: '°C', xs: ks, ys: ks.map(function (k) { return d.temp[k]; }), src: M.dep.data.fuente, measured: true, celdas: d.celdas, method: M.dep.data.metodo, generado: M.dep.data.generado };
+      return { key: key, name: d.name, kind: 'aire', unit: '°C', xs: ks, ys: ks.map(function (k) { return d.temp[k]; }), src: T(M.dep.data.fuente), measured: true, celdas: d.celdas, method: T(M.dep.data.metodo), generado: M.dep.data.generado };
     }
     if (key.indexOf('zona:') === 0) {
       var parts = key.split(':'), id = parts[1], sea = parts[2] || null;
       var se = DT.zoneSeries(id, sea);
       if (!se.xs.length) return null;
       var z = DT.zoneById(id);
-      return { key: key, name: id === 'caribe' ? (sea === 'caribe' ? 'Ciénaga Grande' : 'San Andrés') : z.short, kind: 'aire', unit: '°C', xs: se.xs, ys: se.ys, src: se.measured ? 'NASA POWER · temperatura del aire a 2 m (MERRA-2)' : 'Estimado: clima de la zona (WorldClim) + anomalía de NASA GISTEMP', measured: se.measured };
+      return { key: key, name: id === 'caribe' ? (sea === 'caribe' ? 'Ciénaga Grande' : 'San Andrés') : z.short, kind: 'aire', unit: '°C', xs: se.xs, ys: se.ys, src: se.measured ? T('NASA POWER · temperatura del aire a 2 m (MERRA-2)') : T('Estimado: clima de la zona (WorldClim) + anomalía de NASA GISTEMP'), measured: se.measured };
     }
     return null;
   };
@@ -116,7 +116,7 @@
   M.COLORS = ['#5cc8ff', '#fbbf24', '#f472b6', '#a3e635'];
   M.multiChart = function (list, o) {
     o = o || {};
-    if (window.G) return G.line(list.map(function (s, i) { return { name: s.name || 'Serie ' + (i + 1), xs: s.xs, ys: s.ys, color: s.color }; }), { x: o.x, band: o.band, marks: o.marks, aria: o.aria, unit: o.unit, varName: o.varName, title: o.title });
+    if (window.G) return G.line(list.map(function (s, i) { return { name: s.name || T('Serie') + ' ' + (i + 1), xs: s.xs, ys: s.ys, color: s.color }; }), { x: o.x, band: o.band, marks: o.marks, aria: o.aria, unit: o.unit, varName: o.varName, title: o.title });
     var w = 360, h = 190, m = { l: 34, r: 8, t: 10, b: 22 };
     var xsAll = [], ysAll = [];
     list.forEach(function (s) { s.xs.forEach(function (x, i) { if (isFinite(s.ys[i])) { xsAll.push(x); ysAll.push(s.ys[i]); } }); });
@@ -124,7 +124,7 @@
     var X = d3.scaleLinear().domain(o.x || d3.extent(xsAll)).range([m.l, w - m.r]);
     var ex = d3.extent(ysAll), pad = (ex[1] - ex[0]) * 0.08 || 1;
     var Y = d3.scaleLinear().domain([ex[0] - pad, ex[1] + pad]).nice().range([h - m.b, m.t]);
-    var svg = d3.create('svg').attr('viewBox', '0 0 ' + w + ' ' + h).attr('role', 'img').attr('aria-label', o.aria || 'Comparación de series');
+    var svg = d3.create('svg').attr('viewBox', '0 0 ' + w + ' ' + h).attr('role', 'img').attr('aria-label', o.aria || T('Comparación de series'));
     if (o.band) svg.append('rect').attr('x', X(o.band[0])).attr('width', Math.max(0, X(o.band[1]) - X(o.band[0]))).attr('y', m.t).attr('height', h - m.b - m.t).attr('fill', 'rgba(92,200,255,0.08)');
     Y.ticks(4).forEach(function (t) {
       svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', Y(t)).attr('y2', Y(t)).attr('stroke', '#1f3a52');
@@ -165,8 +165,8 @@
     return '<div class="mcard"><div class="k">' + esc(k) + '</div><div class="v"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
   };
   M.sigIcon = function (res) {
-    if (!res) return '<span class="sig ns" title="Pocos datos">sin datos suficientes</span>';
+    if (!res) return T('<span class="sig ns" title="Pocos datos">sin datos suficientes</span>');
     var sig = res.p < 0.05 && res.pmk < 0.05;
-    return sig ? '<span class="sig ok" title="Regresión y Mann-Kendall con p < 0,05">✓ significativa</span>' : '<span class="sig ns" title="Al menos una prueba con p ≥ 0,05">no significativa</span>';
+    return sig ? T('<span class="sig ok" title="Regresión y Mann-Kendall con p < 0,05">✓ significativa</span>') : T('<span class="sig ns" title="Al menos una prueba con p ≥ 0,05">no significativa</span>');
   };
 })();
